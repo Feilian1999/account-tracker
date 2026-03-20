@@ -105,16 +105,27 @@
             </div>
           </div>
 
-          <!-- Date -->
-          <div>
-            <label class="label-text !text-xs">{{ $t("common.date") }}</label>
-            <input
-              v-model="form.date"
-              type="date"
-              required
-              class="input-field"
-            />
-          </div>
+            <!-- Date & Note Grouped -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="label-text !text-xs">{{ $t("common.date") }}</label>
+                <input
+                  v-model="form.date"
+                  type="date"
+                  required
+                  class="input-field !py-2 text-sm"
+                />
+              </div>
+              <div class="flex flex-col">
+                <label class="label-text !text-xs">{{ $t("common.note") }}</label>
+                <input
+                  v-model="form.note"
+                  type="text"
+                  :placeholder="$t('common.note')"
+                  class="input-field !py-2 text-sm"
+                />
+              </div>
+            </div>
 
           <!-- Paid By -->
           <div v-if="form.type === 'expense'" class="pt-2">
@@ -189,15 +200,7 @@
             </p>
           </div>
 
-          <!-- Note -->
-          <div>
-            <input
-              v-model="form.note"
-              type="text"
-              :placeholder="$t('common.note')"
-              class="input-field text-sm"
-            />
-          </div>
+
 
           <BaseButton
             type="submit"
