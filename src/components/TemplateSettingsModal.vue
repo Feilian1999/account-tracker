@@ -1,12 +1,13 @@
 <template>
   <Teleport to="body">
     <div
+      v-if="modelValue"
       class="fixed inset-0 z-50 flex flex-col justify-end"
-      @click.self="$emit('close')"
+      @click.self="$emit('update:modelValue', false)"
     >
       <div
         class="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        @click="$emit('close')"
+        @click="$emit('update:modelValue', false)"
       ></div>
 
       <!-- List View -->
@@ -19,7 +20,7 @@
             {{ $t("templates.title") }}
           </h2>
           <button
-            @click="$emit('close')"
+            @click="$emit('update:modelValue', false)"
             class="rounded-full bg-gray-100 p-2 text-gray-500 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600"
           >
             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -188,7 +189,10 @@ import BaseButton from "./BaseButton.vue";
 import CategoryIcon from "./CategoryIcon.vue";
 
 const store = useTrackerStore();
-const emit = defineEmits(["close"]);
+defineProps({
+  modelValue: Boolean,
+});
+const emit = defineEmits(["update:modelValue"]);
 const { t } = useI18n();
 
 const isCreating = ref(false);
@@ -207,7 +211,7 @@ const availableCategories = computed(() =>
 );
 
 const isFormValid = computed(() => {
-  return newForm.value.name.trim() !== "" && newForm.value.category !== "";
+  return (newForm.value.name || '').trim() !== "" && newForm.value.category !== "";
 });
 
 function getCategoryColor(id: string) {

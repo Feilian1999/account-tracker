@@ -23,6 +23,8 @@ export default {
   home: {
     personalAccount: "個人口座",
     importFromBook: "他の帳簿から費用をインポート",
+    quickActions: "クイック操作",
+    quickImportHint: "未精算分を読み込む",
     personalRecords: "個人の記録",
     totalRecords: "計 {count} 件",
     noRecords: "個人の記録はまだありません",
@@ -106,6 +108,7 @@ export default {
   templates: {
     title: "記帳テンプレート",
     noTemplates: "テンプレートはまだありません",
+    manage: "管理",
     addTemplate: "テンプレートを追加",
     editTemplate: "テンプレートを編集",
     templateName: "テンプレート名",

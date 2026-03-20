@@ -23,6 +23,8 @@ export default {
   home: {
     personalAccount: "Personal Account",
     importFromBook: "Import from Book",
+    quickActions: "Quick Actions",
+    quickImportHint: "Import unpaid records",
     personalRecords: "Personal Records",
     totalRecords: "Total {count}",
     noRecords: "No personal records yet",
@@ -106,6 +108,7 @@ export default {
   templates: {
     title: "Record Templates",
     noTemplates: "No templates yet",
+    manage: "Manage",
     addTemplate: "Add Template",
     editTemplate: "Edit Template",
     templateName: "Template Name",

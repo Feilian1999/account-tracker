@@ -23,6 +23,8 @@ export default {
   home: {
     personalAccount: "個人帳戶",
     importFromBook: "從其他帳本匯入花費",
+    quickActions: "快速操作",
+    quickImportHint: "匯入未結算紀錄",
     personalRecords: "個人紀錄",
     totalRecords: "共 {count} 筆",
     noRecords: "還沒有個人紀錄",
@@ -106,6 +108,7 @@ export default {
   templates: {
     title: "快速記帳範本",
     noTemplates: "尚未建立任何範本",
+    manage: "管理範本",
     addTemplate: "新增範本",
     editTemplate: "編輯範本",
     templateName: "範本名稱",
