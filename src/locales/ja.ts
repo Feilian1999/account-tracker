@@ -17,6 +17,7 @@ export default {
   nav: {
     home: "詳細",
     books: "帳簿",
+    statistics: "統計",
     profile: "マイページ",
   },
   home: {
@@ -109,6 +110,13 @@ export default {
     namePlaceholder: "例：太郎",
     startButton: "始める",
   },
+  filter: {
+    all: "全て",
+    year: "年",
+    month: "月",
+    date: "日付",
+    noRecords: "この期間に記録がありません",
+  },
   categories: {
     settingsTitle: "カテゴリー設定",
     settingsSubtitle: "カテゴリーを管理",
@@ -131,5 +139,14 @@ export default {
     i2: "お小遣い",
     i3: "ボーナス",
     i4: "その他",
+  },
+  statistics: {
+    title: "統計分析",
+    subtitle: "個人支出分析",
+    categoryBreakdown: "カテゴリー別",
+    monthlyTrend: "月次トレンド",
+    noData: "分析するデータがありません",
+    total: "合計",
+    records: "件",
   },
 };

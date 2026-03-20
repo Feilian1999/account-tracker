@@ -1,22 +1,23 @@
 <template>
   <div class="grid grid-cols-3 gap-3">
-    <div class="rounded-2xl bg-white/15 p-3 text-center">
-      <p :class="['text-xs', labelClass]">總支出</p>
-      <p class="mt-0.5 font-bold text-white" :class="valueClass">
+    <div class="min-w-0 rounded-2xl bg-white/15 p-3 text-center">
+      <p :class="['text-xs', labelClass]">{{ $t('common.totalExpense') }}</p>
+      <p class="mt-0.5 truncate font-bold text-white" :class="valueClass" :title="totalExpense.toLocaleString()">
         {{ totalExpense.toLocaleString() }}
       </p>
     </div>
-    <div class="rounded-2xl bg-white/15 p-3 text-center">
-      <p :class="['text-xs', labelClass]">總收入</p>
-      <p class="mt-0.5 font-bold text-white" :class="valueClass">
+    <div class="min-w-0 rounded-2xl bg-white/15 p-3 text-center">
+      <p :class="['text-xs', labelClass]">{{ $t('common.totalIncome') }}</p>
+      <p class="mt-0.5 truncate font-bold text-white" :class="valueClass" :title="totalIncome.toLocaleString()">
         {{ totalIncome.toLocaleString() }}
       </p>
     </div>
-    <div class="rounded-2xl bg-white/15 p-3 text-center">
-      <p :class="['text-xs', labelClass]">淨額</p>
+    <div class="min-w-0 rounded-2xl bg-white/15 p-3 text-center">
+      <p :class="['text-xs', labelClass]">{{ $t('common.net') }}</p>
       <p
-        class="mt-0.5 font-bold"
+        class="mt-0.5 truncate font-bold"
         :class="[valueClass, balance < 0 ? 'text-red-300' : 'text-green-300']"
+        :title="balance.toLocaleString()"
       >
         {{ balance.toLocaleString() }}
       </p>

@@ -133,9 +133,9 @@
         <!-- Book Summary -->
         <div class="mt-4">
           <SummaryBar
-            :totalExpense="store.totalExpense"
-            :totalIncome="store.totalIncome"
-            :balance="store.balance"
+            :totalExpense="filteredBookExpense"
+            :totalIncome="filteredBookIncome"
+            :balance="filteredBookBalance"
             labelClass="text-blue-200"
             valueClass="text-base"
           />
@@ -146,7 +146,7 @@
       <div class="mt-5 px-4">
         <div class="mb-3 flex items-center justify-between">
           <h2 class="section-title">{{ $t("books.records") }}</h2>
-          <span class="section-count">{{ $t("books.recordsCount", { count: store.currentBookRecords.length }) }}</span>
+          <span class="section-count">{{ $t("books.recordsCount", { count: filteredBookRecords.length }) }}</span>
         </div>
 
         <div
@@ -161,9 +161,17 @@
           <p class="text-sm font-bold">{{ $t("books.noRecords") }}</p>
         </div>
 
-        <div v-else class="space-y-3 pb-24">
+        <template v-else>
+          <DateFilterBar :dates="bookRecordDates" @change="onBookFilterChange" class="mb-3" />
+
+          <div v-if="filteredBookRecords.length === 0" class="empty-state py-10">
+            <div class="mb-2 text-3xl">🔍</div>
+            <p class="text-sm font-bold">{{ $t("filter.noRecords") }}</p>
+          </div>
+
+          <div v-else class="space-y-3 pb-24">
           <div
-            v-for="record in store.currentBookRecords"
+            v-for="record in filteredBookRecords"
             :key="record.id"
             @click="openEditRecord(record.id)"
             class="record-card cursor-pointer"
@@ -187,11 +195,12 @@
               <div class="flex items-center gap-2">
                 <p
                   :class="[
-                    'text-lg font-bold',
+                    'max-w-[120px] truncate text-right text-lg font-bold',
                     record.type === 'expense'
                       ? 'text-gray-800 dark:text-gray-100'
                       : 'text-green-600 dark:text-green-400',
                   ]"
+                  :title="(record.type === 'expense' ? '-' : '+') + record.amount.toLocaleString()"
                 >
                   {{ record.type === "expense" ? "-" : "+"
                   }}{{ record.amount.toLocaleString() }}
@@ -229,7 +238,8 @@
             </div>
             <p v-if="record.note" class="hint-text mt-1.5">{{ record.note }}</p>
           </div>
-        </div>
+          </div>
+        </template>
       </div>
 
       <DraggableFab color="blue" @click="openNewRecord" />
@@ -264,6 +274,8 @@ import { getCategoryIcon, getCategoryBg, formatDate } from "../utils/category";
 import DraggableFab from "../components/DraggableFab.vue";
 import CategoryIcon from "../components/CategoryIcon.vue";
 import SummaryBar from "../components/SummaryBar.vue";
+import DateFilterBar from "../components/DateFilterBar.vue";
+import type { DateFilter } from "../components/DateFilterBar.vue";
 import CreateBookModal from "../components/books/CreateBookModal.vue";
 import BookAddRecordSheet from "../components/books/BookAddRecordSheet.vue";
 import BookSettlementSheet from "../components/books/BookSettlementSheet.vue";
@@ -287,6 +299,31 @@ const showSettlementSheet = ref(false);
 const editRecordId = ref<string | undefined>(undefined);
 const editBookId = ref<string | undefined>(undefined);
 
+// ---- Date Filter ----
+const bookDateFilter = ref<DateFilter>({ mode: "all", year: "", month: "", date: "" });
+const onBookFilterChange = (f: DateFilter) => { bookDateFilter.value = f; };
+const bookRecordDates = computed(() => store.currentBookRecords.map((r) => r.date));
+
+const filteredBookRecords = computed(() => {
+  const records = store.currentBookRecords;
+  const { mode, year, month, date } = bookDateFilter.value;
+  let result;
+  if (mode === "all") result = records;
+  else if (mode === "year") result = records.filter((r) => r.date.startsWith(year));
+  else if (mode === "month") result = records.filter((r) => r.date.startsWith(`${year}-${month}`));
+  else if (mode === "date") result = records.filter((r) => r.date === date);
+  else result = records;
+  return [...result].sort((a, b) => b.date.localeCompare(a.date));
+});
+
+const filteredBookExpense = computed(() =>
+  filteredBookRecords.value.filter((r) => r.type === "expense").reduce((s, r) => s + r.amount, 0),
+);
+const filteredBookIncome = computed(() =>
+  filteredBookRecords.value.filter((r) => r.type === "income").reduce((s, r) => s + r.amount, 0),
+);
+const filteredBookBalance = computed(() => filteredBookIncome.value - filteredBookExpense.value);
+
 const currentBook = computed(
   () => store.books.find((b) => b.id === selectedBookId.value) ?? null,
 );
@@ -297,6 +334,7 @@ const getMemberName = (id: string) =>
 const openBook = (id: string) => {
   selectedBookId.value = id;
   store.selectBook(id);
+  bookDateFilter.value = { mode: "all", year: "", month: "", date: "" };
 };
 
 const openNewBook = () => {

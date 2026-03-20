@@ -17,9 +17,9 @@
       </div>
 
       <SummaryBar
-        :totalExpense="store.personalTotalExpense"
-        :totalIncome="store.personalTotalIncome"
-        :balance="store.personalBalance"
+        :totalExpense="filteredExpense"
+        :totalIncome="filteredIncome"
+        :balance="filteredBalance"
         labelClass="text-violet-200"
         valueClass="text-lg"
       />
@@ -40,7 +40,7 @@
     <div class="mt-5 px-4">
       <div class="mb-3 flex items-center justify-between">
         <h2 class="section-title">{{ $t("home.personalRecords") }}</h2>
-        <span class="section-count">{{ $t("home.totalRecords", { count: store.personalRecords.length }) }}</span>
+        <span class="section-count">{{ $t("home.totalRecords", { count: filteredPersonalRecords.length }) }}</span>
       </div>
 
       <div v-if="store.personalRecords.length === 0" class="empty-state py-10 text-sm">
@@ -48,9 +48,17 @@
         {{ $t("home.noRecords") }}
       </div>
 
-      <div v-else class="space-y-2.5">
-        <div
-          v-for="record in store.personalRecords"
+      <template v-else>
+        <DateFilterBar :dates="recordDates" @change="onFilterChange" class="mb-3" />
+
+        <div v-if="filteredPersonalRecords.length === 0" class="empty-state py-8 text-sm">
+          <div class="mb-2 text-3xl">🔍</div>
+          {{ $t("filter.noRecords") }}
+        </div>
+
+        <div v-else class="space-y-2.5">
+          <div
+            v-for="record in filteredPersonalRecords"
           :key="record.id"
           @click="openEditRecord(record.id)"
           class="record-card cursor-pointer"
@@ -76,9 +84,10 @@
             <div class="flex items-center gap-2">
               <p
                 :class="[
-                  'font-bold',
+                  'max-w-[120px] truncate font-bold text-right',
                   record.type === 'expense' ? 'text-red-500' : 'text-green-500',
                 ]"
+                :title="(record.type === 'expense' ? '-' : '+') + record.amount.toLocaleString()"
               >
                 {{ record.type === "expense" ? "-" : "+" }}{{ record.amount.toLocaleString() }}
               </p>
@@ -104,8 +113,9 @@
               {{ $t("home.fromBook") }}
             </span>
           </div>
+          </div>
         </div>
-      </div>
+      </template>
     </div>
 
     <!-- Draggable FAB -->
@@ -125,6 +135,8 @@ import { colorMap, formatDate } from "../utils/category";
 import DraggableFab from "../components/DraggableFab.vue";
 import CategoryIcon from "../components/CategoryIcon.vue";
 import SummaryBar from "../components/SummaryBar.vue";
+import DateFilterBar from "../components/DateFilterBar.vue";
+import type { DateFilter } from "../components/DateFilterBar.vue";
 import AddPersonalRecordSheet from "../components/home/AddPersonalRecordSheet.vue";
 import ImportFromBookSheet from "../components/home/ImportFromBookSheet.vue";
 
@@ -133,6 +145,31 @@ const { locale, te, t } = useI18n();
 const showForm = ref(false);
 const showImportSheet = ref(false);
 const editRecordId = ref<string | undefined>(undefined);
+
+// ---- Date Filter ----
+const dateFilter = ref<DateFilter>({ mode: "all", year: "", month: "", date: "" });
+const onFilterChange = (f: DateFilter) => { dateFilter.value = f; };
+const recordDates = computed(() => store.personalRecords.map((r) => r.date));
+
+const filteredPersonalRecords = computed(() => {
+  const records = store.personalRecords;
+  const { mode, year, month, date } = dateFilter.value;
+  let result;
+  if (mode === "all") result = records;
+  else if (mode === "year") result = records.filter((r) => r.date.startsWith(year));
+  else if (mode === "month") result = records.filter((r) => r.date.startsWith(`${year}-${month}`));
+  else if (mode === "date") result = records.filter((r) => r.date === date);
+  else result = records;
+  return [...result].sort((a, b) => b.date.localeCompare(a.date));
+});
+
+const filteredExpense = computed(() =>
+  filteredPersonalRecords.value.filter((r) => r.type === "expense").reduce((s, r) => s + r.amount, 0),
+);
+const filteredIncome = computed(() =>
+  filteredPersonalRecords.value.filter((r) => r.type === "income").reduce((s, r) => s + r.amount, 0),
+);
+const filteredBalance = computed(() => filteredIncome.value - filteredExpense.value);
 
 const openNewRecord = () => {
   editRecordId.value = undefined;

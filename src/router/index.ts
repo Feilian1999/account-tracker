@@ -4,6 +4,7 @@ import AddRecord from "../views/AddRecord.vue";
 import Books from "../views/Books.vue";
 import Setup from "../views/Setup.vue";
 import Profile from "../views/Profile.vue";
+import Statistics from "../views/Statistics.vue";
 import { useTrackerStore } from "../stores/tracker";
 
 const router = createRouter({
@@ -14,6 +15,7 @@ const router = createRouter({
     { path: "/profile", name: "profile", component: Profile },
     { path: "/add", name: "add", component: AddRecord },
     { path: "/books", name: "books", component: Books },
+    { path: "/statistics", name: "statistics", component: Statistics },
   ],
 });
 

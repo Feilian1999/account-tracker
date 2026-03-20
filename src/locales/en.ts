@@ -17,6 +17,7 @@ export default {
   nav: {
     home: "Home",
     books: "Books",
+    statistics: "Stats",
     profile: "Profile",
   },
   home: {
@@ -109,6 +110,13 @@ export default {
     namePlaceholder: "e.g., Allen",
     startButton: "Get Started",
   },
+  filter: {
+    all: "All",
+    year: "Year",
+    month: "Month",
+    date: "Date",
+    noRecords: "No records for this period",
+  },
   categories: {
     settingsTitle: "Category Settings",
     settingsSubtitle: "Manage your expense and income categories",
@@ -131,5 +139,14 @@ export default {
     i2: "Allowance",
     i3: "Bonus",
     i4: "Other",
+  },
+  statistics: {
+    title: "Statistics",
+    subtitle: "Personal spending analysis",
+    categoryBreakdown: "Category Breakdown",
+    monthlyTrend: "Monthly Trend",
+    noData: "No data to analyze yet",
+    total: "Total",
+    records: "records",
   },
 };

@@ -17,6 +17,7 @@ export default {
   nav: {
     home: "明細",
     books: "帳本",
+    statistics: "統計",
     profile: "我",
   },
   home: {
@@ -109,6 +110,13 @@ export default {
     namePlaceholder: "例如：小明、Allen",
     startButton: "開始使用",
   },
+  filter: {
+    all: "全部",
+    year: "年度",
+    month: "月份",
+    date: "日期",
+    noRecords: "此時間範圍無紀錄",
+  },
   categories: {
     settingsTitle: "收支分類設定",
     settingsSubtitle: "管理您的記帳分類",
@@ -131,5 +139,14 @@ export default {
     i2: "零用錢",
     i3: "獎金",
     i4: "其他",
+  },
+  statistics: {
+    title: "統計分析",
+    subtitle: "個人帳戶消費統計",
+    categoryBreakdown: "分類統計",
+    monthlyTrend: "每月趨勢",
+    noData: "目前沒有紀錄可供分析",
+    total: "合計",
+    records: "筆",
   },
 };
