@@ -104,6 +104,7 @@ export default {
     categorySet: "收支分類設定",
     templateSet: "快速記帳範本",
     languageSet: "語言",
+    login: "登入 / 註冊",
   },
   templates: {
     title: "快速記帳範本",

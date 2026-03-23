@@ -56,3 +56,18 @@ export function formatDate(dateStr: string, locale?: string): string {
     day: "2-digit",
   });
 }
+
+/**
+ * Formats a date string specifically with a localized weekday included.
+ * E.g., "2026/03/21 Saturday"
+ */
+export function formatDateWithWeekday(dateStr: string, locale?: string): string {
+  const date = new Date(dateStr);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  const weekday = date.toLocaleDateString(locale ?? navigator.language, {
+    weekday: "short", // "short" yields "週六", "Sat", "土"
+  });
+  return `${y}/${m}/${d} ${weekday}`;
+}

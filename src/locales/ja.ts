@@ -104,6 +104,7 @@ export default {
     categorySet: "カテゴリー設定",
     templateSet: "記帳テンプレート",
     languageSet: "言語",
+    login: "ログイン / アカウント作成",
   },
   templates: {
     title: "記帳テンプレート",

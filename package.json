@@ -13,6 +13,7 @@
     "@capacitor/core": "^5.7.8",
     "@capacitor/ios": "^5.7.8",
     "@heroicons/vue": "^2.2.0",
+    "axios": "^1.13.6",
     "pinia": "^3.0.4",
     "vue": "^3.5.12",
     "vue-i18n": "^11.3.0",

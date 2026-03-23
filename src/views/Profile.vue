@@ -111,10 +111,8 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
           </svg>
         </button>
-      </div>
-
-      <div class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all dark:border-gray-800 dark:bg-gray-800">
-        <button @click="showLangSheet = true" class="flex w-full cursor-pointer items-center justify-between p-4 transition-colors hover:bg-gray-50 active:bg-gray-100 dark:hover:bg-gray-700/50 dark:active:bg-gray-700">
+        <!-- Language Setting -->
+        <button @click="showLangSheet = true" class="flex w-full cursor-pointer items-center justify-between border-t border-gray-50 p-4 transition-colors hover:bg-gray-50 active:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700/50 dark:active:bg-gray-700">
           <div class="flex items-center gap-3">
             <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500 dark:bg-blue-900/30">
               <CategoryIcon name="language" class="h-5 w-5" />
@@ -139,6 +137,19 @@
               />
             </svg>
           </div>
+        </button>
+
+        <!-- Login Setting -->
+        <button @click="router.push('/login')" class="flex w-full cursor-pointer items-center justify-between border-t border-gray-50 p-4 transition-colors hover:bg-gray-50 active:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700/50 dark:active:bg-gray-700">
+          <div class="flex items-center gap-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-500 dark:bg-emerald-900/30">
+              <CategoryIcon name="login" class="h-5 w-5" />
+            </div>
+            <span class="font-bold text-gray-700 dark:text-gray-200">{{ $t("profile.login") }}</span>
+          </div>
+          <svg class="h-5 w-5 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
         </button>
       </div>
     </div>
@@ -187,6 +198,7 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import { useTrackerStore } from "../stores/tracker";
 import CategorySettingsModal from "../components/CategorySettingsModal.vue";
 import TemplateSettingsModal from "../components/TemplateSettingsModal.vue";
@@ -194,6 +206,7 @@ import CategoryIcon from "../components/CategoryIcon.vue";
 import CloseButton from "../components/CloseButton.vue";
 
 const { locale } = useI18n();
+const router = useRouter();
 const store = useTrackerStore();
 const showCategorySettings = ref(false);
 const showTemplateSettings = ref(false);

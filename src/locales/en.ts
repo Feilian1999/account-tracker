@@ -104,6 +104,7 @@ export default {
     categorySet: "Category Settings",
     templateSet: "Record Templates",
     languageSet: "Language",
+    login: "Login / Register",
   },
   templates: {
     title: "Record Templates",
