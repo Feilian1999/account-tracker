@@ -110,7 +110,7 @@
 
             <!-- Date & Note -->
             <div class="grid grid-cols-2 gap-3">
-              <div>
+              <div class="min-w-0">
                 <label class="label-text !text-xs">{{ $t("common.date") }}</label>
                 <input
                   v-model="form.date"
