@@ -4,7 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/account-tracker/',   // ← 改成你的 GitHub repository 名稱
+  base: '/',
   plugins: [
     vue(),
     VitePWA({
