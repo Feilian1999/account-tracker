@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
+import { pushSyncData, pullSyncData } from "../utils/api";
 
 // ============================
 // Data Models
@@ -555,6 +556,41 @@ export const useTrackerStore = defineStore("tracker", () => {
     save();
   };
 
+  const syncToCloud = async () => {
+    if (!userProfile.value.isLoggedIn || !userProfile.value.authToken) return;
+    const payload = {
+      books: books.value,
+      records: records.value,
+      personal_records: personalRecords.value,
+      categories: customCategories.value,
+      templates: recordTemplates.value
+    };
+    try {
+      await pushSyncData(payload);
+      alert("資料已成功同步至雲端！");
+    } catch (e) {
+      alert("同步失敗，請稍後再試。");
+    }
+  };
+
+  const overwriteFromCloud = async () => {
+    if (!userProfile.value.isLoggedIn || !userProfile.value.authToken) return;
+    if (!confirm("這將會覆蓋此裝置上的所有本地資料，確定要繼續嗎？")) return;
+    try {
+      const response = await pullSyncData();
+      const data = response.data;
+      customCategories.value = data.categories || [];
+      books.value = data.books || [];
+      records.value = data.records || [];
+      personalRecords.value = data.personal_records || [];
+      recordTemplates.value = data.templates || [];
+      save();
+      alert("資料已成功從雲端回復！");
+    } catch (e) {
+      alert("下載失敗，請稍後再試。");
+    }
+  };
+
   return {
     userProfile,
     isProfileSet,
@@ -595,10 +631,12 @@ export const useTrackerStore = defineStore("tracker", () => {
     addCustomCategory,
     deleteCustomCategory,
 
-    // New template related exports
     recordTemplates,
     addTemplate,
     updateTemplate,
     deleteTemplate,
+
+    syncToCloud,
+    overwriteFromCloud,
   };
 });

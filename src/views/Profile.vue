@@ -184,6 +184,31 @@
           </template>
         </ProfileSettingItem>
       </div>
+
+      <!-- Cloud Sync Section (Only if Logged In) -->
+      <div v-if="store.userProfile.isLoggedIn" class="space-y-3">
+        <h2 class="px-2 text-xs font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">
+          雲端同步
+        </h2>
+        <div class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all dark:border-gray-800 dark:bg-gray-800">
+          <ProfileSettingItem
+            title="備份至雲端"
+            iconName="cloud_upload"
+            colorClasses="bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30"
+            :isFirst="true"
+            @click="store.syncToCloud"
+          />
+          <ProfileSettingItem
+            title="從雲端回復"
+            iconName="cloud_download"
+            colorClasses="bg-blue-50 text-blue-600 dark:bg-blue-900/30"
+            @click="store.overwriteFromCloud"
+          />
+        </div>
+        <p class="px-2 text-[10px] font-bold text-gray-400 dark:text-gray-600">
+          * 備份將會以目前此裝置的資料為準覆蓋雲端紀錄。
+        </p>
+      </div>
     </div>
 
     <!-- Category Settings Modal -->

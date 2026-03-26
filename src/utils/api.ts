@@ -2,37 +2,47 @@ import axios from "axios";
 
 // 建立 Axios 實例
 const api = axios.create({
-  // Backend is running on port 8080 locally according to main.go
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:8080/api",
-  timeout: 10000,
+  timeout: 15000,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// 可以在這邊加入 Request Interceptor 來附加 JWT Token 等資訊
+// Request Interceptor to attach JWT token
 api.interceptors.request.use(
   (config) => {
-    // const token = localStorage.getItem('token');
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`
-    // }
+    try {
+      const profileRaw = localStorage.getItem('tracker_user_profile');
+      if (profileRaw) {
+        const profile = JSON.parse(profileRaw);
+        if (profile.authToken) {
+          config.headers.Authorization = `Bearer ${profile.authToken}`;
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse profile for auth token", e);
+    }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response Interceptor 用來全局處理錯誤
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
     console.error("API Error:", error);
     return Promise.reject(error);
   }
 );
+
+// Sync APIs
+export const pushSyncData = async (data: any) => {
+  return api.post("/sync/push", data);
+};
+
+export const pullSyncData = async () => {
+  return api.get("/sync/pull");
+};
 
 export default api;
