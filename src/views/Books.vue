@@ -1,5 +1,5 @@
 <template>
-  <div class="page-container">
+  <main class="page-container">
     <BookList
       v-if="!selectedBookId"
       @select="openBook"
@@ -17,7 +17,6 @@
       @share="handleShareBook"
     />
 
-    <!-- ===== Modals & Sheets (Shared) ===== -->
     <CreateBookModal
       v-model="showCreateModal"
       :editBookId="editBookId"
@@ -44,23 +43,25 @@
       v-model="showShareModal"
       :shareCode="currentShareCode"
     />
-  </div>
+  </main>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import { useTrackerStore } from "../stores/tracker";
-import { useToast } from "../composables/useToast";
-import BookList from "../components/books/BookList.vue";
-import BookDetail from "../components/books/BookDetail.vue";
-import CreateBookModal from "../components/books/CreateBookModal.vue";
+import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import BookAddRecordSheet from "../components/books/BookAddRecordSheet.vue";
+import BookDetail from "../components/books/BookDetail.vue";
+import BookList from "../components/books/BookList.vue";
 import BookSettlementSheet from "../components/books/BookSettlementSheet.vue";
+import CreateBookModal from "../components/books/CreateBookModal.vue";
 import JoinBookModal from "../components/books/JoinBookModal.vue";
 import ShareBookModal from "../components/books/ShareBookModal.vue";
+import { useToast } from "../composables/useToast";
+import { useTrackerStore } from "../stores/tracker";
 
 const store = useTrackerStore();
 const toast = useToast();
+const { t } = useI18n();
 
 const selectedBookId = ref<string | null>(null);
 const showCreateModal = ref(false);
@@ -73,7 +74,7 @@ const editRecordId = ref<string | undefined>(undefined);
 const editBookId = ref<string | undefined>(undefined);
 
 const currentBook = computed(
-  () => store.books.find((b) => b.id === selectedBookId.value) ?? null,
+  () => store.books.find((book) => book.id === selectedBookId.value) ?? null,
 );
 
 const openBook = (id: string) => {
@@ -109,8 +110,8 @@ const handleShareBook = async () => {
       currentShareCode.value = code;
       showShareModal.value = true;
     }
-  } catch (err) {
-    toast.error("分享帳本失敗，請稍後再試。");
+  } catch {
+    toast.error(t("books.share.failed"));
   }
 };
 </script>

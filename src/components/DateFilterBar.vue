@@ -1,10 +1,10 @@
 <template>
   <div>
-    <!-- Mode selector tabs -->
     <div class="flex gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
       <button
         v-for="m in MODES"
         :key="m"
+        type="button"
         @click="setMode(m)"
         :class="[
           'flex-1 rounded-lg py-1.5 text-xs font-semibold transition-colors',
@@ -17,7 +17,6 @@
       </button>
     </div>
 
-    <!-- Pickers -->
     <div v-if="mode !== 'all'" class="mt-2 flex gap-2">
       <select
         v-if="mode === 'year' || mode === 'month'"
@@ -39,8 +38,8 @@
 
       <input
         v-if="mode === 'date'"
-        type="date"
         v-model="date"
+        type="date"
         class="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
       />
     </div>
@@ -48,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 
 export type FilterMode = "all" | "year" | "month" | "date";
@@ -87,23 +86,18 @@ const availableYears = computed(() => {
 });
 
 const availableMonthsForYear = computed(() =>
-  [
-    ...new Set(
-      props.dates.filter((d) => d.startsWith(year.value)).map((d) => d.slice(5, 7)),
-    ),
-  ].sort(),
+  [...new Set(props.dates.filter((d) => d.startsWith(year.value)).map((d) => d.slice(5, 7)))].sort(),
 );
 
 const formatMonth = (m: string): string =>
   new Intl.DateTimeFormat(locale.value, { month: "long" }).format(
-    new Date(parseInt(year.value), parseInt(m, 10) - 1),
+    new Date(parseInt(year.value, 10), parseInt(m, 10) - 1),
   );
 
 function emitFilter() {
   emit("change", { mode: mode.value, year: year.value, month: month.value, date: date.value });
 }
 
-// Cascade: when year changes, ensure the selected month is valid for that year
 watch(year, () => {
   const months = availableMonthsForYear.value;
   if (months.length > 0 && !months.includes(month.value)) {
@@ -111,7 +105,6 @@ watch(year, () => {
   }
 });
 
-// Emit whenever any filter dimension changes
 watch([mode, year, month, date], emitFilter, { immediate: true });
 
 function setMode(newMode: FilterMode) {
