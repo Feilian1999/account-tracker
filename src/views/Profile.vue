@@ -288,8 +288,7 @@ const toggleTheme = () => {
 
 const handleLogin = () => {
   const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
-  const redirectUri = `${window.location.origin}/login`;
-  window.location.href = `${backendUrl}/auth/google/login?redirect_uri=${encodeURIComponent(redirectUri)}`;
+  window.location.href = `${backendUrl}/auth/google/login`;
 };
 
 const handleLogout = () => {
