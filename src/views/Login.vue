@@ -1,24 +1,25 @@
 <template>
-  <div class="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-6 py-12 dark:bg-gray-950">
-    <div class="w-full max-w-sm">
-      <div class="mb-10 text-center">
+  <main class="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-6 py-12 dark:bg-gray-950">
+    <section class="w-full max-w-sm" aria-labelledby="login-title">
+      <header class="mb-10 text-center">
         <div class="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-[2rem] bg-violet-600 text-white shadow-xl shadow-violet-500/20">
           <CategoryIcon name="account_balance_wallet" class="text-5xl" />
         </div>
-        <h1 class="text-2xl font-black tracking-tight text-gray-900 dark:text-white">
-          {{ store.isProfileSet ? $t('login.linkAccountTitle') : $t('login.title') }}
+        <h1 id="login-title" class="text-2xl font-black tracking-tight text-gray-900 dark:text-white">
+          {{ store.isProfileSet ? $t("login.linkAccountTitle") : $t("login.title") }}
         </h1>
         <p class="mt-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-          {{ store.isProfileSet ? $t('login.linkAccountSubtitle', { name: store.userProfile.name }) : $t('login.subtitle') }}
+          {{ store.isProfileSet ? $t("login.linkAccountSubtitle", { name: store.userProfile.name }) : $t("login.subtitle") }}
         </p>
-      </div>
+      </header>
 
       <div v-if="!showAnonymousForm" class="space-y-4">
         <button
-          @click="handleGoogleLogin"
+          type="button"
           class="group relative flex w-full items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-4 text-sm font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 active:scale-[0.98] dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+          @click="handleGoogleLogin"
         >
-          <svg class="h-5 w-5" viewBox="0 0 24 24">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
               fill="#4285F4"
@@ -50,8 +51,9 @@
           </div>
 
           <button
-            @click="openAnonymousForm"
+            type="button"
             class="w-full rounded-2xl bg-gray-900 px-4 py-4 text-sm font-bold text-white shadow-sm transition-all hover:bg-gray-800 active:scale-[0.98] dark:bg-white dark:text-gray-900 dark:hover:bg-white"
+            @click="openAnonymousForm"
           >
             {{ $t("login.anonymousLogin") }}
           </button>
@@ -67,16 +69,18 @@
         </div>
       </div>
 
-      <form v-else @submit.prevent="handleStart" class="space-y-6">
+      <form v-else class="space-y-6" @submit.prevent="handleStart">
         <div class="space-y-2">
-          <label class="px-1 text-xs font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">
+          <label for="login-name" class="px-1 text-xs font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">
             {{ $t("setup.namePrompt") }}
           </label>
           <input
+            id="login-name"
             ref="nameInput"
             v-model="name"
             required
             type="text"
+            autocomplete="name"
             :placeholder="$t('login.namePlaceholder')"
             class="w-full rounded-2xl border-2 border-gray-100 bg-white px-5 py-4 text-sm font-bold text-gray-900 placeholder:text-gray-300 focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white dark:placeholder:text-gray-700 dark:focus:border-violet-500"
           />
@@ -84,7 +88,7 @@
 
         <div class="rounded-2xl bg-amber-50 p-4 dark:bg-amber-950/30">
           <p class="text-[11px] font-bold leading-relaxed text-amber-700 dark:text-amber-500">
-            ⚠️ {{ $t("login.anonymousWarning") }}
+            {{ $t("login.anonymousWarning") }}
           </p>
         </div>
 
@@ -96,42 +100,45 @@
           >
             {{ $t("login.startBtn") }}
           </button>
-          
+
           <button
             type="button"
-            @click="showAnonymousForm = false"
             class="text-xs font-bold text-gray-400 hover:text-gray-600 dark:text-gray-600 dark:hover:text-gray-400"
+            @click="showAnonymousForm = false"
           >
-            ← {{ $t("login.backToOptions") }}
+            {{ $t("login.backToOptions") }}
           </button>
         </div>
-        <div type="button" class="mt-8 flex justify-center gap-4 text-center">
-          <router-link to="/privacy" class="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-gray-600 dark:text-gray-600 dark:hover:text-gray-400">
-            {{ $t('privacy.title') }}
-          </router-link>
-          <span class="text-[10px] text-gray-300 dark:text-gray-800">•</span>
-          <router-link to="/terms" class="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-gray-600 dark:text-gray-600 dark:hover:text-gray-400">
-            {{ $t('terms.title') }}
-          </router-link>
-        </div>
+
+        <footer class="mt-8 text-center">
+          <nav class="flex justify-center gap-4" aria-label="Legal links">
+            <router-link to="/privacy" class="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-gray-600 dark:text-gray-600 dark:hover:text-gray-400">
+              {{ $t("privacy.title") }}
+            </router-link>
+            <span class="text-[10px] text-gray-300 dark:text-gray-800" aria-hidden="true">&bull;</span>
+            <router-link to="/terms" class="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-gray-600 dark:text-gray-600 dark:hover:text-gray-400">
+              {{ $t("terms.title") }}
+            </router-link>
+          </nav>
+        </footer>
       </form>
-    </div>
-  </div>
+    </section>
+  </main>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, useTemplateRef } from 'vue';
-import { useTrackerStore } from '../stores/tracker';
-import { useRouter, useRoute } from 'vue-router';
-import CategoryIcon from '../components/CategoryIcon.vue';
+import { nextTick, onMounted, ref, useTemplateRef } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import CategoryIcon from "../components/CategoryIcon.vue";
+import { useTrackerStore } from "../stores/tracker";
 
 const store = useTrackerStore();
 const router = useRouter();
 const route = useRoute();
 
 const showAnonymousForm = ref(false);
-const name = ref('');
-const nameInput = useTemplateRef('nameInput');
+const name = ref("");
+const nameInput = useTemplateRef("nameInput");
 
 const openAnonymousForm = async () => {
   showAnonymousForm.value = true;
@@ -140,19 +147,18 @@ const openAnonymousForm = async () => {
 };
 
 const handleGoogleLogin = () => {
-  const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+  const backendUrl = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
   window.location.href = `${backendUrl}/auth/google/login`;
 };
 
 const handleStart = () => {
   if (name.value.trim()) {
     store.loginAnonymous(name.value);
-    router.push('/dashboard');
+    router.push("/dashboard");
   }
 };
 
 onMounted(() => {
-  // Check if we have tokens in the URL (returned from Google callback)
   const query = route.query;
   if (query.token && query.name) {
     store.loginGoogle({
@@ -161,8 +167,7 @@ onMounted(() => {
       email: query.email as string,
       avatar: query.avatar as string,
     });
-    // Clear URL parameters
-    router.replace('/dashboard');
+    router.replace("/dashboard");
   }
 });
 </script>

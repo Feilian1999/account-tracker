@@ -6,18 +6,22 @@
       @click.self="close"
     >
       <div class="sheet-backdrop" @click="close"></div>
-      <div
+      <section
         class="animate-slide-up relative flex max-h-[90vh] w-full max-w-md flex-col rounded-t-[2rem] bg-white shadow-2xl transition-colors dark:bg-gray-900"
+        role="dialog"
+        aria-modal="true"
+        :aria-labelledby="sheetTitleId"
+        :aria-describedby="sheetSubtitleId"
       >
         <!-- Header -->
         <div
           class="z-10 flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4 transition-colors dark:border-gray-800"
         >
           <div>
-            <h2 class="text-xl font-bold text-gray-800 dark:text-gray-200">
+            <h2 :id="sheetTitleId" class="text-xl font-bold text-gray-800 dark:text-gray-200">
               {{ $t("recordSheet.title") }}
             </h2>
-            <p class="hint-text mt-0.5">{{ $t("recordSheet.subtitle", { name: bookName }) }}</p>
+            <p :id="sheetSubtitleId" class="hint-text mt-0.5">{{ $t("recordSheet.subtitle", { name: bookName }) }}</p>
           </div>
           <CloseButton @click="close" />
         </div>
@@ -245,13 +249,13 @@
           </BaseButton>
           </div>
         </form>
-      </div>
+      </section>
     </div>
   </Teleport>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { computed, ref, useId, watch } from "vue";
 import { useTrackerStore } from "../../stores/tracker";
 import type { Member } from "../../stores/tracker";
 import { colorMap } from "../../utils/category";
@@ -273,6 +277,9 @@ const emit = defineEmits<{
 
 const store = useTrackerStore();
 const today = new Date().toISOString().split("T")[0];
+const baseId = useId();
+const sheetTitleId = `${baseId}-title`;
+const sheetSubtitleId = `${baseId}-subtitle`;
 
 const defaultForm = () => ({
   type: "expense" as "expense" | "income",

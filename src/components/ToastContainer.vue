@@ -1,19 +1,25 @@
 <template>
   <Teleport to="body">
-    <div class="fixed bottom-20 left-1/2 z-[999] flex -translate-x-1/2 flex-col items-center gap-2 pointer-events-none">
+    <div
+      class="pointer-events-none fixed bottom-20 left-1/2 z-[999] flex -translate-x-1/2 flex-col items-center gap-2"
+      aria-live="polite"
+      aria-atomic="true"
+    >
       <TransitionGroup name="toast">
-        <div
+        <button
           v-for="toast in toasts"
           :key="toast.id"
+          type="button"
           :class="[
             'pointer-events-auto flex max-w-xs items-center gap-2.5 rounded-2xl px-5 py-3 shadow-2xl backdrop-blur-lg transition-all',
             typeClasses[toast.type],
           ]"
+          :aria-label="toast.message"
           @click="dismiss(toast.id)"
         >
-          <span class="material-symbols-outlined text-lg shrink-0">{{ typeIcon[toast.type] }}</span>
+          <span class="material-symbols-outlined shrink-0 text-lg" aria-hidden="true">{{ typeIcon[toast.type] }}</span>
           <span class="text-sm font-medium leading-snug">{{ toast.message }}</span>
-        </div>
+        </button>
       </TransitionGroup>
     </div>
   </Teleport>

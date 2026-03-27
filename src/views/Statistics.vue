@@ -1,7 +1,6 @@
 <template>
-  <div class="page-container min-h-screen bg-gray-50 transition-colors dark:bg-gray-900">
-    <!-- Header -->
-    <div class="rounded-b-3xl bg-gradient-to-br from-emerald-500 to-teal-600 px-6 pb-8 pt-10 text-white shadow-lg">
+  <main class="page-container min-h-screen bg-gray-50 transition-colors dark:bg-gray-900">
+    <header class="rounded-b-3xl bg-gradient-to-br from-emerald-500 to-teal-600 px-6 pb-8 pt-10 text-white shadow-lg">
       <div class="mb-4">
         <p class="text-xs font-medium uppercase tracking-wider text-emerald-200">
           {{ $t("statistics.subtitle") }}
@@ -18,157 +17,163 @@
         labelClass="text-emerald-200"
         valueClass="text-lg"
       />
-    </div>
+    </header>
 
-    <div class="mt-5 px-4">
-      <!-- Date Filter (default to year) -->
-      <DateFilterBar
-        v-if="store.personalRecords.length > 0"
-        :dates="recordDates"
-        initialMode="year"
-        hideDateMode
-        @change="onFilterChange"
-        class="mb-5"
-      />
+    <div class="mt-5 space-y-5 px-4 pb-24">
+      <section v-if="store.personalRecords.length > 0" aria-label="Date filters">
+        <DateFilterBar
+          :dates="recordDates"
+          initialMode="year"
+          hideDateMode
+          @change="onFilterChange"
+        />
+      </section>
 
-      <!-- Empty State -->
-      <div v-if="filteredRecords.length === 0" class="empty-state py-16">
-        <div class="mb-3 text-5xl">📊</div>
+      <section v-if="filteredRecords.length === 0" class="empty-state py-16" aria-live="polite">
+        <div class="mb-3 text-5xl" aria-hidden="true">📊</div>
         <p class="font-bold">{{ $t("statistics.noData") }}</p>
-      </div>
+      </section>
 
       <template v-else>
-        <!-- Shared expense / income toggle -->
-        <div class="mb-4 flex justify-end">
-          <div class="flex gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
-            <button
-              @click="categoryTab = 'expense'"
-              :class="[
-                'rounded-lg px-3 py-1 text-xs font-semibold transition-colors',
-                categoryTab === 'expense'
-                  ? 'bg-white text-red-600 shadow-sm dark:bg-gray-700 dark:text-red-400'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
-              ]"
-            >
-              {{ $t("common.expense") }}
-            </button>
-            <button
-              @click="categoryTab = 'income'"
-              :class="[
-                'rounded-lg px-3 py-1 text-xs font-semibold transition-colors',
-                categoryTab === 'income'
-                  ? 'bg-white text-green-600 shadow-sm dark:bg-gray-700 dark:text-green-400'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
-              ]"
-            >
-              {{ $t("common.income") }}
-            </button>
+        <section aria-labelledby="statistics-type-heading">
+          <div class="mb-4 flex justify-end">
+            <h2 id="statistics-type-heading" class="sr-only">{{ $t("statistics.categoryBreakdown") }}</h2>
+            <div class="flex gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800" role="tablist" aria-label="Record type">
+              <button
+                type="button"
+                role="tab"
+                :aria-selected="categoryTab === 'expense'"
+                :tabindex="categoryTab === 'expense' ? 0 : -1"
+                :class="[
+                  'rounded-lg px-3 py-1 text-xs font-semibold transition-colors',
+                  categoryTab === 'expense'
+                    ? 'bg-white text-red-600 shadow-sm dark:bg-gray-700 dark:text-red-400'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
+                ]"
+                @click="categoryTab = 'expense'"
+              >
+                {{ $t("common.expense") }}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                :aria-selected="categoryTab === 'income'"
+                :tabindex="categoryTab === 'income' ? 0 : -1"
+                :class="[
+                  'rounded-lg px-3 py-1 text-xs font-semibold transition-colors',
+                  categoryTab === 'income'
+                    ? 'bg-white text-green-600 shadow-sm dark:bg-gray-700 dark:text-green-400'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
+                ]"
+                @click="categoryTab = 'income'"
+              >
+                {{ $t("common.income") }}
+              </button>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <!-- Trend Bar Chart -->
-        <TrendChart
-          v-if="dateFilter.mode !== 'date'"
-          :title="trendTitle"
-          :data="trendData"
-          :maxVal="trendMaxVal"
-          :activeTab="categoryTab"
-        />
+        <section v-if="dateFilter.mode !== 'date'" aria-labelledby="statistics-trend-heading">
+          <h2 id="statistics-trend-heading" class="sr-only">{{ trendTitle }}</h2>
+          <TrendChart
+            :title="trendTitle"
+            :data="trendData"
+            :maxVal="trendMaxVal"
+            :activeTab="categoryTab"
+          />
+        </section>
 
-        <!-- Category Breakdown -->
-        <CategoryBreakdown
-          :data="categoryBreakdown"
-          :total="categoryTotal"
-          :activeTab="categoryTab"
-        />
+        <section aria-labelledby="statistics-breakdown-heading">
+          <h2 id="statistics-breakdown-heading" class="sr-only">{{ $t("statistics.categoryBreakdown") }}</h2>
+          <CategoryBreakdown
+            :data="categoryBreakdown"
+            :total="categoryTotal"
+            :activeTab="categoryTab"
+          />
+        </section>
       </template>
     </div>
-  </div>
+  </main>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import CategoryBreakdown from "../components/statistics/CategoryBreakdown.vue";
+import TrendChart from "../components/statistics/TrendChart.vue";
+import DateFilterBar from "../components/DateFilterBar.vue";
+import SummaryBar from "../components/SummaryBar.vue";
+import type { DateFilter } from "../components/DateFilterBar.vue";
 import { useTrackerStore } from "../stores/tracker";
 import { colorMap } from "../utils/category";
-import SummaryBar from "../components/SummaryBar.vue";
-import DateFilterBar from "../components/DateFilterBar.vue";
-import TrendChart from "../components/statistics/TrendChart.vue";
-import CategoryBreakdown from "../components/statistics/CategoryBreakdown.vue";
-import type { DateFilter } from "../components/DateFilterBar.vue";
 
 const store = useTrackerStore();
 const { te, t } = useI18n();
 
-// ---- Date Filter (default: year) ----
 const today = new Date().toISOString().split("T")[0];
 const currentYear = today.slice(0, 4);
 const currentMonth = today.slice(5, 7);
 
 const dateFilter = ref<DateFilter>({ mode: "year", year: currentYear, month: currentMonth, date: today });
-const onFilterChange = (f: DateFilter) => { dateFilter.value = f; };
+const onFilterChange = (f: DateFilter) => {
+  dateFilter.value = f;
+};
 const recordDates = computed(() => store.personalRecords.map((r) => r.date));
 
 const filteredRecords = computed(() => {
   const records = store.personalRecords;
   const { mode, year, month, date } = dateFilter.value;
-  let result;
-  if (mode === "all") result = records;
-  else if (mode === "year") result = records.filter((r) => r.date.startsWith(year));
-  else if (mode === "month") result = records.filter((r) => r.date.startsWith(`${year}-${month}`));
-  else if (mode === "date") result = records.filter((r) => r.date === date);
-  else result = records;
-  return result;
+  if (mode === "all") return records;
+  if (mode === "year") return records.filter((r) => r.date.startsWith(year));
+  if (mode === "month") return records.filter((r) => r.date.startsWith(`${year}-${month}`));
+  if (mode === "date") return records.filter((r) => r.date === date);
+  return records;
 });
 
 const filteredExpense = computed(() =>
-  filteredRecords.value.filter((r) => r.type === "expense").reduce((s, r) => s + r.amount, 0),
+  filteredRecords.value.filter((r) => r.type === "expense").reduce((sum, record) => sum + record.amount, 0),
 );
 const filteredIncome = computed(() =>
-  filteredRecords.value.filter((r) => r.type === "income").reduce((s, r) => s + r.amount, 0),
+  filteredRecords.value.filter((r) => r.type === "income").reduce((sum, record) => sum + record.amount, 0),
 );
 const filteredBalance = computed(() => filteredIncome.value - filteredExpense.value);
 
-// ---- Shared toggle for trend + category ----
 const categoryTab = ref<"expense" | "income">("expense");
 
-// ---- Category Breakdown ----
-const categoryMap = computed(() =>
-  new Map(store.allCategories.map((c) => [c.name, c])),
-);
+const categoryMap = computed(() => new Map(store.allCategories.map((category) => [category.name, category])));
 
 const getCategoryStyle = (categoryName: string) => {
-  const cat = categoryMap.value.get(categoryName);
-  const color = cat?.color ?? "gray";
+  const category = categoryMap.value.get(categoryName);
+  const color = category?.color ?? "gray";
   return {
-    icon: cat?.icon ?? "more_horiz",
+    icon: category?.icon ?? "more_horiz",
     ...(colorMap[color] ?? colorMap.gray),
   };
 };
 
 const getLocalizedCategoryName = (categoryName: string) => {
-  const cat = categoryMap.value.get(categoryName);
-  if (cat && te(`categories.${cat.id}`)) return t(`categories.${cat.id}`);
+  const category = categoryMap.value.get(categoryName);
+  if (category && te(`categories.${category.id}`)) return t(`categories.${category.id}`);
   return categoryName;
 };
 
-const categoryTotal = computed(() => {
-  return filteredRecords.value
-    .filter((r) => r.type === categoryTab.value)
-    .reduce((s, r) => s + r.amount, 0);
-});
+const categoryTotal = computed(() =>
+  filteredRecords.value
+    .filter((record) => record.type === categoryTab.value)
+    .reduce((sum, record) => sum + record.amount, 0),
+);
 
 const categoryBreakdown = computed(() => {
-  const typeRecords = filteredRecords.value.filter((r) => r.type === categoryTab.value);
-  const total = typeRecords.reduce((s, r) => s + r.amount, 0);
+  const typeRecords = filteredRecords.value.filter((record) => record.type === categoryTab.value);
+  const total = typeRecords.reduce((sum, record) => sum + record.amount, 0);
   if (total === 0) return [];
 
   const map = new Map<string, { total: number; count: number }>();
-  for (const r of typeRecords) {
-    const entry = map.get(r.category) ?? { total: 0, count: 0 };
-    entry.total += r.amount;
+  for (const record of typeRecords) {
+    const entry = map.get(record.category) ?? { total: 0, count: 0 };
+    entry.total += record.amount;
     entry.count += 1;
-    map.set(r.category, entry);
+    map.set(record.category, entry);
   }
 
   return [...map.entries()]
@@ -183,7 +188,6 @@ const categoryBreakdown = computed(() => {
     .sort((a, b) => b.total - a.total);
 });
 
-// ---- Dynamic Trend ----
 const trendTitle = computed(() => {
   const mode = dateFilter.value.mode;
   if (mode === "all") return t("statistics.yearlyTrend");
@@ -192,7 +196,6 @@ const trendTitle = computed(() => {
   return "";
 });
 
-// Max value for Y-axis (reactive via ref updated inside computed)
 const trendMaxValRaw = ref(0);
 const trendMaxVal = computed(() => trendMaxValRaw.value);
 
@@ -202,8 +205,7 @@ const trendData = computed(() => {
   const type = categoryTab.value;
   if (records.length === 0 || mode === "date") return [];
 
-  // Only use records matching current toggle
-  const typeRecords = records.filter((r) => r.type === type);
+  const typeRecords = records.filter((record) => record.type === type);
 
   const getKey = (dateStr: string): string => {
     if (mode === "all") return dateStr.slice(0, 4);
@@ -214,49 +216,39 @@ const trendData = computed(() => {
 
   const map = new Map<string, number>();
 
-  // Pre-fill map for 'year' (all 12 months) and 'month' (all days in month)
   if (mode === "year") {
-    const y = dateFilter.value.year;
-    for (let m = 1; m <= 12; m++) {
-      const mm = m.toString().padStart(2, '0');
-      map.set(`${y}-${mm}`, 0);
+    const year = dateFilter.value.year;
+    for (let month = 1; month <= 12; month += 1) {
+      const paddedMonth = month.toString().padStart(2, "0");
+      map.set(`${year}-${paddedMonth}`, 0);
     }
   } else if (mode === "month") {
-    const y = parseInt(dateFilter.value.year, 10);
-    const m = parseInt(dateFilter.value.month, 10);
-    const daysInMonth = new Date(y, m, 0).getDate();
+    const year = parseInt(dateFilter.value.year, 10);
+    const month = parseInt(dateFilter.value.month, 10);
+    const daysInMonth = new Date(year, month, 0).getDate();
     const prefix = `${dateFilter.value.year}-${dateFilter.value.month}`;
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dd = d.toString().padStart(2, '0');
-      map.set(`${prefix}-${dd}`, 0);
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const paddedDay = day.toString().padStart(2, "0");
+      map.set(`${prefix}-${paddedDay}`, 0);
     }
   }
 
-  for (const r of typeRecords) {
-    const key = getKey(r.date);
-    // Only add to map if it's 'all' mode, or if the key is already in our pre-filled map
-    // (though typeRecords is already filtered to the selected period, so it should match)
+  for (const record of typeRecords) {
+    const key = getKey(record.date);
     if (mode === "all" || map.has(key)) {
-      map.set(key, (map.get(key) ?? 0) + r.amount);
+      map.set(key, (map.get(key) ?? 0) + record.amount);
     }
   }
 
   const entries = [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  const maxVal = entries.reduce((m, [, v]) => Math.max(m, v), 0);
+  const maxVal = entries.reduce((max, [, value]) => Math.max(max, value), 0);
   trendMaxValRaw.value = maxVal;
   if (maxVal === 0) return [];
 
   return entries.map(([key, value]) => {
     let shortLabel = key;
-    if (mode === "all") {
-      shortLabel = key; // year: 2024, 2025, 2026
-    } else if (mode === "year") {
-      // month: just number 1, 2, ..., 12
-      shortLabel = String(parseInt(key.slice(5, 7), 10));
-    } else if (mode === "month") {
-      // day: just number 1, 2, ..., 31
-      shortLabel = String(parseInt(key.slice(8, 10), 10));
-    }
+    if (mode === "year") shortLabel = String(parseInt(key.slice(5, 7), 10));
+    if (mode === "month") shortLabel = String(parseInt(key.slice(8, 10), 10));
 
     return {
       key,

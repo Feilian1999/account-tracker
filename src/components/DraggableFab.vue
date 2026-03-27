@@ -12,7 +12,8 @@
     @touchstart.passive="startDragTouch"
   >
     <button
-      @click="onFabClick"
+      type="button"
+      :aria-label="ariaLabel"
       :class="[
         'flex h-14 w-14 items-center justify-center rounded-full text-white shadow-2xl transition-transform active:scale-95',
         colorClasses[color].bg,
@@ -22,14 +23,10 @@
           ? `0 20px 40px ${colorClasses[color].shadow}`
           : '',
       }"
+      @click="onFabClick"
     >
       <slot>
-        <svg
-          class="h-7 w-7"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -43,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onBeforeUnmount } from "vue";
+import { onBeforeUnmount, ref } from "vue";
 
 const emit = defineEmits(["click"]);
 
@@ -52,6 +49,10 @@ defineProps({
     type: String as () => "violet" | "blue" | "indigo" | "emerald",
     default: "violet",
   },
+  ariaLabel: {
+    type: String,
+    default: "Add",
+  },
 });
 
 const colorClasses = {
@@ -59,9 +60,9 @@ const colorClasses = {
     bg: "bg-violet-600 hover:bg-violet-700",
     shadow: "var(--color-fab-violet, rgba(139,92,246,0.5))",
   },
-  blue: { 
-    bg: "bg-blue-600 hover:bg-blue-700", 
-    shadow: "var(--color-fab-blue, rgba(37,99,235,0.5))" 
+  blue: {
+    bg: "bg-blue-600 hover:bg-blue-700",
+    shadow: "var(--color-fab-blue, rgba(37,99,235,0.5))",
   },
   indigo: {
     bg: "bg-indigo-600 hover:bg-indigo-700",
@@ -76,10 +77,10 @@ const colorClasses = {
 const isDragging = ref(false);
 const fabPos = ref({ x: window.innerWidth - 80, y: window.innerHeight - 160 });
 
-let dragStartX = 0,
-  dragStartY = 0;
-let fabStartX = 0,
-  fabStartY = 0;
+let dragStartX = 0;
+let dragStartY = 0;
+let fabStartX = 0;
+let fabStartY = 0;
 let didMove = false;
 
 const startDrag = (e: MouseEvent) => {
