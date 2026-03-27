@@ -77,7 +77,10 @@ watch(
           return;
         }
       }
-      form.value = { name: "", membersText: "" };
+      form.value = { 
+        name: "", 
+        membersText: store.userProfile.name || "我" 
+      };
     }
   },
 );

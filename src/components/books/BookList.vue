@@ -3,7 +3,13 @@
     <div
       class="bg-gradient-to-br from-blue-600 to-indigo-700 px-4 pb-6 pt-10 shadow-lg"
     >
-      <h1 class="text-2xl font-bold text-white">{{ $t("books.title") }}</h1>
+      <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-white">{{ $t("books.title") }}</h1>
+        <button @click="$emit('join')" class="flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-white/30">
+          <span class="material-symbols-outlined text-sm">cloud_download</span>
+          <span>加入共用</span>
+        </button>
+      </div>
       <p class="mt-1 text-sm text-blue-200">{{ $t("books.subtitle") }}</p>
     </div>
 
@@ -21,7 +27,10 @@
             📒
           </div>
           <div class="min-w-0 flex-1">
-            <p class="section-title truncate">{{ book.name }}</p>
+            <div class="flex items-center gap-1.5">
+              <p class="section-title truncate">{{ book.name }}</p>
+              <span v-if="book.shareCode" class="material-symbols-outlined shrink-0 text-sm text-blue-500" title="共用帳本">cloud_done</span>
+            </div>
             <p class="hint-text mt-0.5">
               {{ book.members.map((m) => m.name).join("・") }}
             </p>
@@ -62,5 +71,6 @@ const store = useTrackerStore();
 defineEmits<{
   (e: "select", id: string): void;
   (e: "add"): void;
+  (e: "join"): void;
 }>();
 </script>

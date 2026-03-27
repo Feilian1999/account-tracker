@@ -8,6 +8,7 @@
       </transition>
     </router-view>
     <BottomNav v-if="store.isProfileSet" />
+    <ToastContainer />
   </div>
 </template>
 
@@ -15,6 +16,7 @@
 import { watch } from "vue";
 import { useTrackerStore } from "./stores/tracker";
 import BottomNav from "./components/BottomNav.vue";
+import ToastContainer from "./components/ToastContainer.vue";
 
 const store = useTrackerStore();
 

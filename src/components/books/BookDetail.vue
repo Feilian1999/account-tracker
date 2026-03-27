@@ -21,44 +21,43 @@
           </svg>
         </button>
         <div>
-          <p class="text-xs font-medium text-blue-200">{{ $t("books.currentBook") }}</p>
-          <h1 class="text-lg font-bold text-white">
+          <div class="flex items-center gap-2">
+            <p class="text-xs font-medium text-blue-200">{{ $t("books.currentBook") }}</p>
+            <span v-if="isPulling" class="material-symbols-outlined animate-spin text-white/50 text-xs">sync</span>
+          </div>
+          <h1 class="text-lg font-bold text-white flex items-center gap-2">
             {{ book.name }}
+            <span v-if="book.shareCode" class="material-symbols-outlined text-sm opacity-60" title="已開啟共用">cloud_done</span>
           </h1>
         </div>
-        <div class="ml-auto flex items-center gap-2">
+        <div class="ml-auto flex items-center gap-1 sm:gap-2">
+          <button
+            @click="$emit('share')"
+            class="flex items-center justify-center rounded-full bg-white/20 w-8 h-8 text-white shadow-sm transition-colors hover:bg-white/30"
+            title="分享與共用"
+          >
+            <span class="material-symbols-outlined text-[18px]">cloud_upload</span>
+          </button>
           <button
             @click="$emit('settle')"
-            class="flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-white/30"
+            class="flex items-center gap-1.5 rounded-full bg-white/20 px-3 h-8 text-sm font-bold text-white shadow-sm transition-colors hover:bg-white/30"
           >
-            <CategoryIcon name="receipt_long" class="-mt-0.5 h-4 w-4" />
-            <span>{{ $t("books.settle") }}</span>
+            <span class="material-symbols-outlined text-[18px]">receipt_long</span>
+            <span class="hidden sm:inline">{{ $t("books.settle") }}</span>
           </button>
           <button
             @click="$emit('edit')"
-            class="flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-white/30"
+            class="flex items-center justify-center rounded-full bg-white/20 w-8 h-8 text-white shadow-sm transition-colors hover:bg-white/30"
+            title="編輯帳本"
           >
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
+            <span class="material-symbols-outlined text-[18px]">edit</span>
           </button>
           <button
             @click="confirmDelete"
-            class="btn-ghost-white hover:!bg-red-400/50"
+            class="flex items-center justify-center rounded-full w-8 h-8 text-white/70 transition-colors hover:text-white hover:bg-red-400/50"
+            title="刪除帳本"
           >
-            <svg
-              class="h-4 w-4 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-              />
-            </svg>
+            <span class="material-symbols-outlined text-[18px]">delete</span>
           </button>
         </div>
       </div>
@@ -214,6 +213,7 @@ const emit = defineEmits<{
   (e: "back"): void;
   (e: "edit"): void;
   (e: "settle"): void;
+  (e: "share"): void;
   (e: "edit-record", id: string): void;
   (e: "add-record"): void;
 }>();
@@ -222,6 +222,17 @@ const store = useTrackerStore();
 const { t, te } = useI18n();
 
 const book = computed(() => store.books.find((b) => b.id === props.bookId));
+
+// Auto-pull shared book data when opened
+const isPulling = ref(false);
+const initPull = async () => {
+  if (book.value?.shareCode) {
+    isPulling.value = true;
+    await store.pullSharedBook(props.bookId);
+    isPulling.value = false;
+  }
+};
+initPull();
 
 const getLocalizedCategoryName = (categoryName: string) => {
   const catId = store.allCategories.find((c) => c.name === categoryName)?.id;

@@ -2,9 +2,9 @@
   <div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col pt-12">
     <!-- Main Content -->
     <main class="flex-grow flex flex-col items-center px-6">
-      <!-- App Icon or Logo Area -->
-      <div class="mb-8 w-24 h-24 bg-violet-100 dark:bg-violet-900/30 rounded-3xl flex items-center justify-center shadow-inner">
-        <span class="material-symbols-outlined text-5xl text-violet-600 dark:text-violet-400">account_balance_wallet</span>
+      <!-- App Icon -->
+      <div class="mb-8 w-32 h-32 rounded-3xl overflow-hidden shadow-2xl shadow-violet-500/20 transform transition hover:scale-105 duration-300">
+        <img src="/magic-sheep.png" alt="Magic Sheep" class="w-full h-full object-cover" />
       </div>
 
       <!-- Hero Section -->

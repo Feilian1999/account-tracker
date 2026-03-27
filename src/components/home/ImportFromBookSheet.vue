@@ -39,6 +39,7 @@
 <script setup lang="ts">
 import { useTrackerStore } from "../../stores/tracker";
 import { useI18n } from "vue-i18n";
+import { useToast } from "../../composables/useToast";
 import BaseBottomSheet from "../BaseBottomSheet.vue";
 
 defineProps<{ modelValue: boolean }>();
@@ -48,6 +49,7 @@ const emit = defineEmits<{
 
 const store = useTrackerStore();
 const { t } = useI18n();
+const toast = useToast();
 
 const handleImport = (
   bookId: string,
@@ -60,7 +62,7 @@ const handleImport = (
   const stat = store.memberStats.find((s) => s.member.id === memberId);
 
   if (!stat || stat.owed <= 0) {
-    alert(t("home.importNoExpense", { member: memberName, book: bookName }));
+    toast.warning(t("home.importNoExpense", { member: memberName, book: bookName }));
     if (prev) store.selectBook(prev);
     return;
   }
