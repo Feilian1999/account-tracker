@@ -14,7 +14,7 @@ export const colorMap: Record<
   red:    { bg: "bg-red-50",    text: "text-red-600",    ring: "ring-red-500" },
   indigo: { bg: "bg-indigo-50", text: "text-indigo-600", ring: "ring-indigo-500" },
   pink:   { bg: "bg-pink-50",   text: "text-pink-600",   ring: "ring-pink-500" },
-  yellow: { bg: "bg-orange-50", text: "text-orange-600", ring: "ring-yellow-500" },
+  yellow: { bg: "bg-yellow-50", text: "text-yellow-600", ring: "ring-yellow-500" },
   teal:   { bg: "bg-teal-50",   text: "text-teal-600",   ring: "ring-teal-500" },
   gray:   { bg: "bg-gray-50",   text: "text-gray-600",   ring: "ring-gray-500" },
 };

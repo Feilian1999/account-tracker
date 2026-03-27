@@ -61,12 +61,12 @@
 
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
-import { useTrackerStore } from "../../stores/tracker";
+import { useTrackerStore, type PersonalRecord } from "../../stores/tracker";
 import { colorMap } from "../../utils/category";
 import CategoryIcon from "../CategoryIcon.vue";
 
 defineProps<{
-  record: any;
+  record: PersonalRecord;
   isLast?: boolean;
 }>();
 

@@ -257,7 +257,7 @@ const filteredBookIncome = computed(() =>
 const filteredBookBalance = computed(() => filteredBookIncome.value - filteredBookExpense.value);
 
 const getMemberName = (id: string) =>
-  book.value?.members.find((m) => m.id === id)?.name ?? "未知";
+  book.value?.members.find((m) => m.id === id)?.name ?? t("books.unknown");
 
 const confirmDelete = () => {
   if (!book.value) return;

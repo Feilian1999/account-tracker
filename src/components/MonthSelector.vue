@@ -76,7 +76,7 @@
                   : 'bg-gray-50 text-gray-700 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
               ]"
             >
-              {{ m }}月
+              {{ locale === 'zh-TW' || locale === 'ja' ? `${m}月` : new Date(2000, m - 1).toLocaleString('en-US', { month: 'short' }) }}
             </button>
           </div>
         </div>

@@ -38,6 +38,7 @@
 
 <script setup lang="ts">
 import { useTrackerStore } from "../../stores/tracker";
+import { useI18n } from "vue-i18n";
 import BaseBottomSheet from "../BaseBottomSheet.vue";
 
 defineProps<{ modelValue: boolean }>();
@@ -46,6 +47,7 @@ const emit = defineEmits<{
 }>();
 
 const store = useTrackerStore();
+const { t } = useI18n();
 
 const handleImport = (
   bookId: string,
@@ -58,14 +60,14 @@ const handleImport = (
   const stat = store.memberStats.find((s) => s.member.id === memberId);
 
   if (!stat || stat.owed <= 0) {
-    alert(`「${memberName}」在「${bookName}」中沒有需要負擔的花費。`);
+    alert(t("home.importNoExpense", { member: memberName, book: bookName }));
     if (prev) store.selectBook(prev);
     return;
   }
 
   if (
     confirm(
-      `將「${memberName}」在「${bookName}」應負擔的 NT$ ${stat.owed.toLocaleString()} 匯入個人帳戶？`,
+      t("home.importConfirm", { member: memberName, book: bookName, amount: stat.owed.toLocaleString() }),
     )
   ) {
     store.importMyShareFromBook(memberId);

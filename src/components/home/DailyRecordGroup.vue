@@ -24,12 +24,13 @@
 
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
+import type { PersonalRecord } from "../../stores/tracker";
 import { formatDateWithWeekday } from "../../utils/category";
 import RecordItem from "./RecordItem.vue";
 
 defineProps<{
   dateGroup: string;
-  records: any[];
+  records: PersonalRecord[];
 }>();
 
 defineEmits<{
@@ -39,7 +40,7 @@ defineEmits<{
 
 const { locale } = useI18n();
 
-const getGroupExpense = (records: any[]) => {
-  return records.filter((r: any) => r.type === "expense").reduce((s: number, r: any) => s + r.amount, 0);
+const getGroupExpense = (records: PersonalRecord[]) => {
+  return records.filter((r) => r.type === "expense").reduce((s, r) => s + r.amount, 0);
 };
 </script>

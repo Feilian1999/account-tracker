@@ -31,21 +31,21 @@
     <div v-else class="p-4">
       <form @submit.prevent="submitRecord" class="card space-y-5">
         <!-- Expense / Income toggle -->
-        <div class="flex rounded-xl bg-gray-100 p-1">
+        <div class="type-toggle-track">
           <button
             type="button"
             @click="form.type = 'expense'"
             :class="[
-              'flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all',
-              form.type === 'expense' ? 'bg-white text-red-600 shadow' : 'text-gray-500',
+              'type-toggle-btn',
+              form.type === 'expense' ? 'type-toggle-btn--active-expense' : 'type-toggle-btn--inactive',
             ]"
           >{{ $t("addRecord.expenseLabel") }}</button>
           <button
             type="button"
             @click="form.type = 'income'"
             :class="[
-              'flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all',
-              form.type === 'income' ? 'bg-white text-green-600 shadow' : 'text-gray-500',
+              'type-toggle-btn',
+              form.type === 'income' ? 'type-toggle-btn--active-income' : 'type-toggle-btn--inactive',
             ]"
           >{{ $t("addRecord.incomeLabel") }}</button>
         </div>

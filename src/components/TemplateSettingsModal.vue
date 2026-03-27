@@ -67,7 +67,7 @@
           <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
           </svg>
-          返回列表
+          {{ $t('categories.backToList') }}
         </button>
       </div>
 
@@ -99,7 +99,7 @@
       </div>
 
       <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-colors dark:border-gray-700 dark:bg-gray-800">
-        <label class="mb-3 block text-sm font-bold text-gray-700 dark:text-gray-300">分類</label>
+        <label class="mb-3 block text-sm font-bold text-gray-700 dark:text-gray-300">{{ $t('common.category') }}</label>
         <div class="grid grid-cols-4 gap-3">
           <button
             v-for="cat in availableCategories"

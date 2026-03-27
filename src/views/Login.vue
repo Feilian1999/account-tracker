@@ -3,7 +3,7 @@
     <div class="w-full max-w-sm">
       <div class="mb-10 text-center">
         <div class="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-[2rem] bg-violet-600 text-white shadow-xl shadow-violet-500/20">
-          <CategoryIcon name="account_balance_wallet" className="text-5xl" />
+          <CategoryIcon name="account_balance_wallet" class="text-5xl" />
         </div>
         <h1 class="text-2xl font-black tracking-tight text-gray-900 dark:text-white">
           {{ store.isProfileSet ? $t('login.linkAccountTitle') : $t('login.title') }}

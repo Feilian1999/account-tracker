@@ -1,6 +1,6 @@
 <template>
   <span
-    :class="['material-symbols-outlined inline-flex items-center justify-center select-none leading-none', className]"
+    class="material-symbols-outlined inline-flex items-center justify-center select-none leading-none"
   >
     {{ name }}
   </span>
@@ -11,10 +11,6 @@ defineProps({
   name: {
     type: String,
     required: true,
-  },
-  className: {
-    type: String,
-    default: "",
   },
 });
 </script>

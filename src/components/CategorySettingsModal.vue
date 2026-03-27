@@ -119,7 +119,7 @@
           <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
           </svg>
-          返回列表
+          {{ $t('categories.backToList') }}
         </button>
       </div>
 
@@ -175,7 +175,7 @@
 
       <!-- Color -->
       <div>
-        <label class="mb-3 block text-sm font-bold text-gray-700 dark:text-gray-300">主題色</label>
+        <label class="mb-3 block text-sm font-bold text-gray-700 dark:text-gray-300">{{ $t('categories.themeColor') }}</label>
         <div class="flex flex-wrap gap-3">
           <button
             v-for="(cls, colorKey) in colorMap"
@@ -197,7 +197,7 @@
 
       <!-- Icon -->
       <div>
-        <label class="mb-3 block text-sm font-bold text-gray-700 dark:text-gray-300">選擇圖示</label>
+        <label class="mb-3 block text-sm font-bold text-gray-700 dark:text-gray-300">{{ $t('categories.chooseIcon') }}</label>
         <div class="grid grid-cols-6 gap-2 sm:grid-cols-8">
           <button
             v-for="i in iconPalette"

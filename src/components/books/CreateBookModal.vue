@@ -104,17 +104,3 @@ const handleCreate = () => {
   }
 };
 </script>
-
-<style scoped>
-.animate-slide-up {
-  animation: slideUp 0.3s ease-out;
-}
-@keyframes slideUp {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
-</style>

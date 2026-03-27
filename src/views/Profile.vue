@@ -14,7 +14,7 @@
         <div>
           <h1 class="text-2xl font-bold">{{ store.userProfile.name }}</h1>
           <p class="text-indigo-200">
-            {{ store.userProfile.isLoggedIn ? 'Cloud Synced' : 'Local Only' }}
+            {{ store.userProfile.isLoggedIn ? $t('profile.cloudSynced') : $t('profile.localOnly') }}
           </p>
         </div>
       </div>
@@ -36,7 +36,7 @@
               {{ $t("login.linkAccountTitle") }}
             </h3>
             <p class="text-[10px] font-bold text-amber-600 dark:text-amber-600">
-              Data is currently stored only on this device
+              {{ $t("profile.localOnlyBanner") }}
             </p>
           </div>
         </div>
@@ -165,21 +165,21 @@
         >
           <template #right>
             <span class="text-xs font-black uppercase tracking-wider text-amber-500">
-              Not Linked
+              {{ $t("profile.notLinked") }}
             </span>
           </template>
         </ProfileSettingItem>
 
         <ProfileSettingItem
           v-else
-          title="登出帳號"
+          :title="$t('profile.logout')"
           iconName="logout"
           colorClasses="bg-red-50 text-red-500 dark:bg-red-900/30"
           @click="handleLogout"
         >
           <template #right>
             <span class="text-xs font-black uppercase tracking-wider text-emerald-500">
-              Connected
+              {{ $t("profile.connected") }}
             </span>
           </template>
         </ProfileSettingItem>
@@ -188,25 +188,25 @@
       <!-- Cloud Sync Section (Only if Logged In) -->
       <div v-if="store.userProfile.isLoggedIn" class="space-y-3">
         <h2 class="px-2 text-xs font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">
-          雲端同步
+          {{ $t("profile.cloudSync") }}
         </h2>
         <div class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all dark:border-gray-800 dark:bg-gray-800">
           <ProfileSettingItem
-            title="備份至雲端"
+            :title="$t('profile.backupToCloud')"
             iconName="cloud_upload"
             colorClasses="bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30"
             :isFirst="true"
             @click="store.syncToCloud"
           />
           <ProfileSettingItem
-            title="從雲端回復"
+            :title="$t('profile.restoreFromCloud')"
             iconName="cloud_download"
             colorClasses="bg-blue-50 text-blue-600 dark:bg-blue-900/30"
             @click="store.overwriteFromCloud"
           />
         </div>
         <p class="px-2 text-[10px] font-bold text-gray-400 dark:text-gray-600">
-          * 備份將會以目前此裝置的資料為準覆蓋雲端紀錄。
+          {{ $t("profile.backupNote") }}
         </p>
       </div>
     </div>
@@ -258,7 +258,7 @@ import CategoryIcon from "../components/CategoryIcon.vue";
 import ProfileSettingItem from "../components/ProfileSettingItem.vue";
 import BaseBottomSheet from "../components/BaseBottomSheet.vue";
 
-const { locale } = useI18n();
+const { locale, t } = useI18n();
 const router = useRouter();
 const store = useTrackerStore();
 const showCategorySettings = ref(false);
@@ -292,12 +292,13 @@ const handleLogin = () => {
 };
 
 const handleLogout = () => {
-  if (confirm("確定要登出嗎？資料將保留在此裝置。")) {
+  if (confirm(t("profile.logoutConfirm"))) {
     store.userProfile.isLoggedIn = false;
     store.userProfile.authToken = undefined;
     store.userProfile.avatar = undefined;
     store.userProfile.email = undefined;
-    // We keep the name so they stay "setup"
+    // We keep the name so they stay "setup", call updateUserProfile to persist
+    store.updateUserProfile(store.userProfile.name);
   }
 };
 
