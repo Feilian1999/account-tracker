@@ -1,7 +1,6 @@
 <template>
   <div class="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-6 py-12 dark:bg-gray-950">
     <div class="w-full max-w-sm">
-      <!-- Logo/Brand -->
       <div class="mb-10 text-center">
         <div class="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-[2rem] bg-violet-600 text-white shadow-xl shadow-violet-500/20">
           <CategoryIcon name="account_balance_wallet" className="text-5xl" />
@@ -14,9 +13,7 @@
         </p>
       </div>
 
-      <!-- Login Options -->
       <div v-if="!showAnonymousForm" class="space-y-4">
-        <!-- Google Login (Main Option) -->
         <button
           @click="handleGoogleLogin"
           class="group relative flex w-full items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-4 text-sm font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 active:scale-[0.98] dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
@@ -42,7 +39,6 @@
           {{ $t("login.googleLogin") }}
         </button>
 
-        <!-- Anonymous Option (Only if not set yet) -->
         <template v-if="!store.isProfileSet">
           <div class="relative py-2">
             <div class="absolute inset-0 flex items-center" aria-hidden="true">
@@ -64,7 +60,6 @@
           </p>
         </template>
 
-        <!-- Back Link (If already profile set) -->
         <div v-if="store.isProfileSet" class="pt-4 text-center">
           <router-link to="/profile" class="text-xs font-bold text-violet-600 hover:text-violet-700 dark:text-violet-400">
             {{ $t("login.backToOptions") }}
@@ -72,8 +67,6 @@
         </div>
       </div>
 
-      <!-- Anonymous Form -->
-      <div v-else class="space-y-6">
       <form v-else @submit.prevent="handleStart" class="space-y-6">
         <div class="space-y-2">
           <label class="px-1 text-xs font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">
@@ -134,7 +127,7 @@ const nameInput = useTemplateRef('nameInput');
 const openAnonymousForm = async () => {
   showAnonymousForm.value = true;
   await nextTick();
-  nameInput.value.focus();
+  nameInput.value?.focus();
 };
 
 const handleGoogleLogin = () => {

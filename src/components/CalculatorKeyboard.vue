@@ -91,6 +91,8 @@ const handleSubmit = () => {
 </script>
 
 <style scoped>
+@reference "tailwindcss";
+
 .btn-calc {
   @apply flex items-center justify-center rounded-xl p-4 text-xl font-medium transition-all active:scale-95 touch-manipulation;
 }
