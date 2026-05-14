@@ -6,12 +6,16 @@ export interface MemberCategoryBreakdown {
   count: number;
 }
 
+/**
+ * Computes per-category expense breakdown for a given member.
+ * @param allMemberIds - All member IDs in the book; required when any record uses splitAmongIds: ["all"]
+ */
 export function calcMemberCategoryBreakdown(
   records: RecordItem[],
   allMemberIds: string[],
   memberId: string
 ): MemberCategoryBreakdown[] {
-  const map = new Map<string, { amount: number; count: number }>();
+  const categoryTotals = new Map<string, { amount: number; count: number }>();
 
   for (const record of records) {
     if (record.type !== "expense") continue;
@@ -22,30 +26,24 @@ export function calcMemberCategoryBreakdown(
 
     if (!splitIds.includes(memberId)) continue;
 
-    let share: number;
-    if (
-      record.splitCustomAmounts &&
-      record.splitCustomAmounts[memberId] !== undefined
-    ) {
-      share = record.splitCustomAmounts[memberId];
-    } else if (splitIds.length > 0) {
-      share = record.amount / splitIds.length;
-    } else {
-      continue;
-    }
+    const share =
+      record.splitCustomAmounts?.[memberId] !== undefined
+        ? record.splitCustomAmounts[memberId]
+        : record.amount / splitIds.length;
 
-    const entry = map.get(record.category) ?? { amount: 0, count: 0 };
+    const entry = categoryTotals.get(record.category) ?? { amount: 0, count: 0 };
     entry.amount += share;
     entry.count += 1;
-    map.set(record.category, entry);
+    categoryTotals.set(record.category, entry);
   }
 
-  return [...map.entries()]
+  return [...categoryTotals.entries()]
     .map(([category, data]) => ({
       category,
+      // round to nearest whole unit for display
       amount: Math.round(data.amount),
       count: data.count,
     }))
-    .filter((item) => item.amount > 0)
+    .filter((item) => item.amount !== 0)
     .sort((a, b) => b.amount - a.amount);
 }

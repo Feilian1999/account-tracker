@@ -52,6 +52,19 @@ describe("calcMemberCategoryBreakdown", () => {
     expect(result).toEqual([{ category: "hotel", amount: 60, count: 1 }]);
   });
 
+  it("falls back to equal split when member is not in splitCustomAmounts", () => {
+    const records = [
+      makeRecord({
+        amount: 200,
+        category: "food",
+        splitAmongIds: ["m1", "m2"],
+        splitCustomAmounts: { m2: 80 }, // m1 not in custom amounts
+      }),
+    ];
+    const result = calcMemberCategoryBreakdown(records, ALL_MEMBERS, "m1");
+    expect(result).toEqual([{ category: "food", amount: 100, count: 1 }]);
+  });
+
   it("groups multiple records of same category and accumulates count", () => {
     const records = [
       makeRecord({ id: "r1", amount: 100, category: "food", splitAmongIds: ["m1", "m2"] }),
