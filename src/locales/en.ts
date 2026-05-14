@@ -141,6 +141,8 @@ export default {
     allSettled: "All Settled!",
     noTransfersNeeded: "No transfers needed currently",
     giveTo: "to",
+    memberCategoryTitle: "Spending Breakdown",
+    noExpense: "No shared expenses for this member",
   },
   profile: {
     settingsTitle: "Settings & Management",

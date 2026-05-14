@@ -2,6 +2,7 @@ import type { Ref } from "vue";
 import { computed, watch } from "vue";
 import type { Book, RecordItem, Member, Settlement, UserProfile, SharedBookPayload } from "./types";
 import { shareBookToCloud, fetchSharedBook, updateSharedBook } from "../utils/api";
+import { calcMemberCategoryBreakdown } from "../utils/memberBreakdown";
 
 // ---- Debounce helper ----
 function debounce<T extends (...args: any[]) => any>(fn: T, ms: number): T {
@@ -405,6 +406,12 @@ export function setupBookActions(
     return result;
   });
 
+  const getMemberCategoryBreakdown = (memberId: string) => {
+    if (!currentBook.value) return [];
+    const allMemberIds = currentBook.value.members.map((m) => m.id);
+    return calcMemberCategoryBreakdown(currentBookRecords.value, allMemberIds, memberId);
+  };
+
   return {
     currentBook,
     currentBookRecords,
@@ -421,6 +428,7 @@ export function setupBookActions(
     balance,
     memberStats,
     settlements,
+    getMemberCategoryBreakdown,
     publishBook,
     joinBookByCode,
     syncSharedBook,

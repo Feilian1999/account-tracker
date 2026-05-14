@@ -141,6 +141,8 @@ export default {
     allSettled: "大家都結清了！",
     noTransfersNeeded: "目前不需要任何轉帳",
     giveTo: "給",
+    memberCategoryTitle: "消費分類明細",
+    noExpense: "這位成員沒有任何分攤消費",
   },
   profile: {
     settingsTitle: "個人設定與管理",
