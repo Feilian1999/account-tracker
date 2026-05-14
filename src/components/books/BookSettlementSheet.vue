@@ -20,17 +20,22 @@
           <div
             v-for="stat in memberStats"
             :key="stat.member.id"
-            class="flex flex-col rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-800"
+            class="flex flex-col rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all cursor-pointer hover:shadow-md active:scale-[0.98] dark:border-gray-800 dark:bg-gray-800"
+            @click="openMemberCategory(stat.member)"
           >
             <div class="mb-3 flex items-center gap-3">
               <div
-                class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-lg font-bold text-blue-600 dark:bg-blue-900/40 dark:text-blue-400"
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-lg font-bold text-blue-600 dark:bg-blue-900/40 dark:text-blue-400"
               >
                 {{ stat.member.name.charAt(0) }}
               </div>
-              <span class="font-bold text-gray-800 dark:text-gray-200">{{
+              <span class="flex-1 font-bold text-gray-800 dark:text-gray-200">{{
                 stat.member.name
               }}</span>
+              <CategoryIcon
+                name="chevron_right"
+                class="h-4 w-4 shrink-0 text-gray-400 dark:text-gray-500"
+              />
             </div>
             <div
               class="flex gap-2 divide-x divide-gray-100 rounded-xl bg-gray-50 p-2 dark:divide-gray-700 dark:bg-gray-900/50"
@@ -150,15 +155,26 @@
         </div>
       </div>
     </div>
+    <MemberCategorySheet
+      v-if="selectedMember"
+      v-model="showMemberCategory"
+      :member="selectedMember"
+      :categoryItems="selectedMemberCategoryItems"
+      :total="selectedMemberTotal"
+    />
   </BaseBottomSheet>
 </template>
 
 <script setup lang="ts">
-import { watch } from "vue";
+import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useTrackerStore } from "../../stores/tracker";
-import type { Settlement } from "../../stores/tracker";
+import type { Settlement, Member } from "../../stores/tracker";
+import type { CategoryBreakdownItem } from "../statistics/CategoryBreakdown.vue";
+import { colorMap } from "../../utils/category";
 import CategoryIcon from "../CategoryIcon.vue";
 import BaseBottomSheet from "../BaseBottomSheet.vue";
+import MemberCategorySheet from "./MemberCategorySheet.vue";
 
 const props = defineProps<{
   modelValue: boolean;
@@ -169,6 +185,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ "update:modelValue": [value: boolean] }>();
 const store = useTrackerStore();
+const { te, t } = useI18n();
 
 watch(
   () => props.modelValue,
@@ -177,5 +194,49 @@ watch(
       store.pullSharedBook(store.currentBookId);
     }
   }
+);
+
+// ---- Member Category Sheet ----
+const selectedMember = ref<Member | null>(null);
+const showMemberCategory = ref(false);
+
+function openMemberCategory(member: Member) {
+  selectedMember.value = member;
+  showMemberCategory.value = true;
+}
+
+const categoryMap = computed(
+  () => new Map(store.allCategories.map((cat) => [cat.name, cat]))
+);
+
+function getCategoryStyle(categoryName: string) {
+  const cat = categoryMap.value.get(categoryName);
+  const color = cat?.color ?? "gray";
+  return { icon: cat?.icon ?? "more_horiz", ...(colorMap[color] ?? colorMap.gray) };
+}
+
+function getLocalizedName(categoryName: string) {
+  const cat = categoryMap.value.get(categoryName);
+  if (cat && te(`categories.${cat.id}`)) return t(`categories.${cat.id}`);
+  return categoryName;
+}
+
+const selectedMemberCategoryItems = computed((): CategoryBreakdownItem[] => {
+  if (!selectedMember.value) return [];
+  const raw = store.getMemberCategoryBreakdown(selectedMember.value.id);
+  const total = raw.reduce((s, item) => s + item.amount, 0);
+  if (total === 0) return [];
+  return raw.map((item) => ({
+    categoryName: item.category,
+    localizedName: getLocalizedName(item.category),
+    total: item.amount,
+    count: item.count,
+    percentage: Math.round((item.amount / total) * 100),
+    style: getCategoryStyle(item.category),
+  }));
+});
+
+const selectedMemberTotal = computed(() =>
+  selectedMemberCategoryItems.value.reduce((s, item) => s + item.total, 0)
 );
 </script>
