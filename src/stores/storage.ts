@@ -31,7 +31,6 @@ export async function migrateFromLocalStorage() {
         // After successful migration to IDB, we can optionally clear localStorage
         // but it's safer to keep it for one more version or clear it specifically.
         localStorage.removeItem(storageKey);
-        console.log(`[storage] Migrated ${key} from localStorage to IndexedDB.`);
       } catch (e) {
         console.error(`[storage] Failed to migrate ${key}:`, e);
       }

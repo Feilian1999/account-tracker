@@ -46,14 +46,16 @@ export function setupPersonalActions(
 
   // ---- Summaries ----
   const personalTotalExpense = computed(() =>
-    personalRecords.value
-      .filter((r) => r.type === "expense")
-      .reduce((s, r) => s + r.amount, 0),
+    personalRecords.value.reduce(
+      (s, r) => (r.type === "expense" ? s + r.amount : s),
+      0,
+    ),
   );
   const personalTotalIncome = computed(() =>
-    personalRecords.value
-      .filter((r) => r.type === "income")
-      .reduce((s, r) => s + r.amount, 0),
+    personalRecords.value.reduce(
+      (s, r) => (r.type === "income" ? s + r.amount : s),
+      0,
+    ),
   );
   const personalBalance = computed(
     () => personalTotalIncome.value - personalTotalExpense.value,
