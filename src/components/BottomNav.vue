@@ -1,9 +1,10 @@
 <template>
   <nav
-    class="fixed bottom-0 left-0 z-50 h-16 w-full border-t border-gray-100 bg-white shadow-lg transition-colors dark:border-gray-800 dark:bg-gray-900"
+    class="fixed bottom-0 left-0 z-50 w-full border-t border-gray-100 bg-white shadow-lg transition-colors dark:border-gray-800 dark:bg-gray-900"
+    style="padding-bottom: env(safe-area-inset-bottom)"
     aria-label="Primary navigation"
   >
-    <ul class="mx-auto grid h-full max-w-md grid-cols-4">
+    <ul class="mx-auto grid h-16 max-w-md grid-cols-4">
       <li class="flex">
         <router-link
           to="/dashboard"

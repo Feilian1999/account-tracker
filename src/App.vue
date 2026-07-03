@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount, watch } from "vue";
+import { onBeforeMount, onBeforeUnmount, watch } from "vue";
 import { useTrackerStore } from "./stores/tracker";
 import BottomNav from "./components/BottomNav.vue";
 import ToastContainer from "./components/ToastContainer.vue";
@@ -28,28 +28,38 @@ onBeforeMount(async () => {
   await store.init();
 });
 
+const applyTheme = (theme: string) => {
+  const isDark =
+    theme === "dark" ||
+    (theme === "system" &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+  const isSheep = theme === "sheep";
+
+  document.documentElement.classList.toggle("dark", isDark);
+  document.documentElement.classList.toggle("theme-sheep", isSheep);
+
+  // Update theme-color meta tag for mobile status bar
+  const themeColor = isSheep ? "#d4a373" : isDark ? "#111827" : "#f9fafb";
+  const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+  if (metaThemeColor) {
+    metaThemeColor.setAttribute("content", themeColor);
+  }
+};
+
 watch(
   () => store.userProfile.theme,
-  (theme) => {
-    const isDark =
-      theme === "dark" ||
-      (theme === "system" &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches);
-
-    const isSheep = theme === "sheep";
-
-    document.documentElement.classList.toggle("dark", isDark);
-    document.documentElement.classList.toggle("theme-sheep", isSheep);
-
-    // Update theme-color meta tag for mobile status bar
-    const themeColor = isSheep ? "#d4a373" : isDark ? "#111827" : "#f9fafb";
-    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-    if (metaThemeColor) {
-      metaThemeColor.setAttribute("content", themeColor);
-    }
-  },
+  (theme) => applyTheme(theme),
   { immediate: true },
 );
+
+// Re-apply when the OS colour scheme changes while on the 'system' theme.
+const media = window.matchMedia("(prefers-color-scheme: dark)");
+const onSchemeChange = () => {
+  if (store.userProfile.theme === "system") applyTheme("system");
+};
+media.addEventListener("change", onSchemeChange);
+onBeforeUnmount(() => media.removeEventListener("change", onSchemeChange));
 
 watch(
   () => store.userProfile.animations,

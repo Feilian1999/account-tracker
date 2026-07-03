@@ -3,14 +3,21 @@ import { computed, watch } from "vue";
 import type { Book, RecordItem, Member, Settlement, UserProfile, SharedBookPayload } from "./types";
 import { shareBookToCloud, fetchSharedBook, updateSharedBook } from "../utils/api";
 import { calcMemberCategoryBreakdown, type MemberCategoryBreakdown } from "../utils/memberBreakdown";
+import { i18n } from "../i18n";
 
-// ---- Debounce helper ----
-function debounce<T extends (...args: any[]) => any>(fn: T, ms: number): T {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  return ((...args: any[]) => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
-  }) as unknown as T;
+// ---- Debounce helper (keyed by the first argument) ----
+// A shared timer would let a mutation on book B cancel book A's pending sync,
+// stranding A's changes locally. Keep one timer per key (bookId).
+function debouncePerKey(fn: (key: string) => any, ms: number): (key: string) => void {
+  const timers = new Map<string, ReturnType<typeof setTimeout>>();
+  return (key: string) => {
+    const prev = timers.get(key);
+    if (prev) clearTimeout(prev);
+    timers.set(key, setTimeout(() => {
+      timers.delete(key);
+      fn(key);
+    }, ms));
+  };
 }
 
 /**
@@ -47,15 +54,36 @@ export function setupBookActions(
     const book = books.value.find((b) => b.id === bookId);
     if (!book || !book.shareCode) return;
 
-    const bookRecords = records.value.filter((r) => r.bookId === bookId);
-    const payload: SharedBookPayload = { book, records: bookRecords };
+    // Snapshot exactly what we push. Records edited/added during the await are
+    // replaced by new objects (updateRecord) or absent (addRecord), so they will
+    // not be in this array and must stay unsynced.
+    const pushedRecords = records.value.filter((r) => r.bookId === bookId);
+    // Deleted record ids to propagate to the shared space so the backend can
+    // remove them from the merged payload (ids are globally unique, safe to send).
+    const deletedIds = [...pendingDeleteRecordIds.value];
+    // Signature of the book fields we push, to detect in-flight edits.
+    const bookSig = book.name + "|" + book.members.map((m) => m.id).join(",");
+    const payload = { book, records: pushedRecords, deletedIds } as SharedBookPayload & { deletedIds: string[] };
 
     try {
       await updateSharedBook(book.shareCode, payload);
-      // Mark records for this shared book as synced
-      records.value.filter((r) => r.bookId === bookId).forEach((r) => {
-        r.isSynced = true;
-      });
+
+      pushedRecords.forEach((r) => { r.isSynced = true; });
+
+      // Only mark the book synced if it wasn't edited during the round trip.
+      const stillBook = books.value.find((b) => b.id === bookId);
+      if (stillBook) {
+        const nowSig = stillBook.name + "|" + stillBook.members.map((m) => m.id).join(",");
+        if (nowSig === bookSig) stillBook.isSynced = true;
+      }
+
+      // These deletions are now propagated; drop their tombstones so they don't
+      // accumulate forever or re-delete resurrected records.
+      if (deletedIds.length) {
+        const sent = new Set(deletedIds);
+        pendingDeleteRecordIds.value = pendingDeleteRecordIds.value.filter((id) => !sent.has(id));
+      }
+
       await save();
     } catch (e) {
       console.error("[sync] Failed to sync shared book:", e);
@@ -63,7 +91,7 @@ export function setupBookActions(
   };
 
   // Debounced version prevents rapid-fire API calls during batch operations
-  const syncSharedBook = debounce(_syncSharedBookImmediate, 300);
+  const syncSharedBook = debouncePerKey(_syncSharedBookImmediate, 300);
 
   const pullSharedBook = async (bookId: string) => {
     const book = books.value.find((b) => b.id === bookId);
@@ -72,8 +100,18 @@ export function setupBookActions(
       const res = await fetchSharedBook(book.shareCode);
       const data = res.data as SharedBookPayload;
 
-      book.name = data.book.name;
-      book.members = data.book.members;
+      // Validate shape before trusting the payload (unauthenticated endpoint).
+      if (!data || !data.book || !Array.isArray(data.book.members) || !Array.isArray(data.records)) {
+        console.warn("[sync] Ignoring malformed shared book payload");
+        return;
+      }
+
+      // Only adopt cloud book fields when we have no pending local book edit,
+      // otherwise a pull would revert a rename / member change awaiting push.
+      if (book.isSynced !== false) {
+        book.name = data.book.name;
+        book.members = data.book.members;
+      }
 
       // Smart merge for shared book records
       const cloudRecords: RecordItem[] = data.records.map((r) => ({ ...r, isSynced: true }));
@@ -135,19 +173,22 @@ export function setupBookActions(
 
       const existing = books.value.find((b) => b.id === data.book.id);
       if (existing) {
-        if (!confirm(`您已經有「${existing.name}」這個帳本了，要用雲端的資料覆蓋本地嗎？`)) return;
+        if (!confirm(i18n.global.t("books.joinOverwriteConfirm", { name: existing.name }))) return;
         records.value = records.value.filter((r) => r.bookId !== existing.id);
         books.value = books.value.filter((b) => b.id !== existing.id);
       }
 
       const newBook: Book = { ...data.book, shareCode: code, isSynced: true };
 
-      // Auto-enroll the joining user as a member
-      const myId = userProfile.value.id;
+      // Auto-enroll the joining user as a member, using the public memberId.
+      const myId = userProfile.value.memberId;
+      const legacyId = userProfile.value.id; // pre-decoupling, membership used the backup id
       const myName = userProfile.value.name || "我";
 
-      // Check if I am already in the member list by userId
-      const existingMemberByUserId = newBook.members.find((m: Member) => m.userId === myId);
+      // Check if I am already in the member list (by new memberId or legacy id).
+      const existingMemberByUserId = newBook.members.find(
+        (m: Member) => m.userId === myId || (!!legacyId && m.userId === legacyId)
+      );
 
       let shouldSyncBack = false;
       if (!existingMemberByUserId) {
@@ -157,7 +198,7 @@ export function setupBookActions(
         );
 
         if (existingMemberByName) {
-          // Link my userId to the existing placeholder member
+          // Link my memberId to the existing placeholder member
           existingMemberByName.userId = myId;
         } else {
           // If no matching name found, add me as a NEW member
@@ -198,9 +239,10 @@ export function setupBookActions(
       .filter((n) => n.trim())
       .map((n, i) => {
         const m: Member = { id: crypto.randomUUID(), name: n.trim() };
-        // Assume the first member added is the current user if they are creating it
-        if (i === 0 && userProfile.value.id) {
-          m.userId = userProfile.value.id;
+        // Assume the first member added is the current user if they are creating it.
+        // Use the public memberId (never the secret backup id).
+        if (i === 0 && userProfile.value.memberId) {
+          m.userId = userProfile.value.memberId;
         }
         return m;
       });
@@ -230,28 +272,60 @@ export function setupBookActions(
     if (!book || !name.trim()) return null;
 
     const existingMembers = book.members;
-    const newMembers: Member[] = memberNames
-      .filter((n) => n.trim())
-      .map((n) => {
-        const trimmed = n.trim();
-        const existing = existingMembers.find((m) => m.name === trimmed);
-        return existing ? existing : { id: crypto.randomUUID(), name: trimmed };
-      });
+    const trimmedNames = memberNames.map((n) => n.trim()).filter(Boolean);
+
+    // First pass: exact name matches keep their identity (id + userId).
+    const usedExisting = new Set<string>();
+    const matched: (Member | null)[] = trimmedNames.map((name) => {
+      const found = existingMembers.find((m) => !usedExisting.has(m.id) && m.name === name);
+      if (found) {
+        usedExisting.add(found.id);
+        return found;
+      }
+      return null;
+    });
+
+    // Second pass: pair each still-unmatched name with a leftover existing member
+    // (in order) and treat it as a RENAME — preserving the id keeps all historical
+    // paidBy/split references intact instead of reassigning them to member #0.
+    const leftoverExisting = existingMembers.filter((m) => !usedExisting.has(m.id));
+    let li = 0;
+    const newMembers: Member[] = matched.map((m, idx) => {
+      if (m) return m;
+      const name = trimmedNames[idx];
+      if (li < leftoverExisting.length) {
+        const renamed: Member = { ...leftoverExisting[li], name };
+        li++;
+        return renamed;
+      }
+      return { id: crypto.randomUUID(), name };
+    });
 
     const newMemberIds = newMembers.map((m) => m.id);
     const fallbackId = newMembers[0]?.id || "";
 
-    // Adjust records to prevent orphaned member references
+    // Adjust only records that still reference a genuinely removed member.
     records.value.filter((r) => r.bookId === bookId).forEach((r) => {
+      let changed = false;
       if (!newMemberIds.includes(r.paidById)) {
         r.paidById = fallbackId;
+        changed = true;
       }
       if (!r.splitAmongIds.includes("all")) {
-        r.splitAmongIds = r.splitAmongIds.filter((id) => newMemberIds.includes(id));
-        if (r.splitAmongIds.length === 0 && fallbackId) {
-          r.splitAmongIds = [fallbackId];
+        const filtered = r.splitAmongIds.filter((id) => newMemberIds.includes(id));
+        if (filtered.length !== r.splitAmongIds.length) {
+          r.splitAmongIds = filtered.length > 0 ? filtered : fallbackId ? [fallbackId] : [];
+          changed = true;
         }
       }
+      if (r.splitCustomAmounts) {
+        const removed = Object.keys(r.splitCustomAmounts).filter((id) => !newMemberIds.includes(id));
+        if (removed.length) {
+          removed.forEach((id) => delete r.splitCustomAmounts![id]);
+          changed = true;
+        }
+      }
+      if (changed) r.isSynced = false;
     });
 
     book.name = name.trim();
@@ -339,50 +413,59 @@ export function setupBookActions(
     const members = currentBook.value.members;
     const allMemberIds = members.map((m) => m.id);
 
-    // Initialize maps for faster accumulation
-    const paidMap: Record<string, number> = {};
-    const owedMap: Record<string, number> = {};
-    members.forEach(m => {
-      paidMap[m.id] = 0;
-      owedMap[m.id] = 0;
+    // Accumulate in integer cents so per-record shares sum EXACTLY to the amount
+    // and every member's net cancels out (independent rounding did not).
+    const paidCents: Record<string, number> = {};
+    const owedCents: Record<string, number> = {};
+    members.forEach((m) => {
+      paidCents[m.id] = 0;
+      owedCents[m.id] = 0;
     });
 
-    currentBookRecords.value.forEach(r => {
+    currentBookRecords.value.forEach((r) => {
       if (r.type !== "expense") return;
 
-      // Add to paid amount
-      if (paidMap[r.paidById] !== undefined) {
-        paidMap[r.paidById] += r.amount;
+      const amountCents = Math.round(r.amount * 100);
+      if (paidCents[r.paidById] !== undefined) {
+        paidCents[r.paidById] += amountCents;
       }
 
-      // Calculate and distribute owed amount
-      const splitIds = r.splitAmongIds.includes("all") ? allMemberIds : r.splitAmongIds;
       if (r.splitCustomAmounts) {
-        // Handle custom split amounts
+        // Custom split amounts
         Object.entries(r.splitCustomAmounts).forEach(([memberId, amount]) => {
-          if (owedMap[memberId] !== undefined) {
-            owedMap[memberId] += amount;
+          if (owedCents[memberId] !== undefined) {
+            owedCents[memberId] += Math.round(amount * 100);
           }
         });
-      } else if (splitIds.length > 0) {
-        // Handle equal split
-        const share = r.amount / splitIds.length;
-        splitIds.forEach(id => {
-          if (owedMap[id] !== undefined) {
-            owedMap[id] += share;
-          }
-        });
+      } else {
+        // Equal split — distribute cents with remainder to the first members so
+        // the shares sum exactly to the record amount.
+        const splitIds = (r.splitAmongIds.includes("all") ? allMemberIds : r.splitAmongIds)
+          .filter((id) => owedCents[id] !== undefined);
+        const n = splitIds.length;
+        if (n > 0) {
+          const base = Math.floor(amountCents / n);
+          let extra = amountCents - base * n;
+          splitIds.forEach((id) => {
+            let c = base;
+            if (extra > 0) {
+              c += 1;
+              extra--;
+            }
+            owedCents[id] += c;
+          });
+        }
       }
     });
 
-    return members.map(member => {
-      const paid = paidMap[member.id] || 0;
-      const owed = owedMap[member.id] || 0;
+    return members.map((member) => {
+      const paid = paidCents[member.id] || 0;
+      const owed = owedCents[member.id] || 0;
       return {
         member,
-        paid: Math.round(paid),
-        owed: Math.round(owed),
-        net: Math.round(paid - owed),
+        paid: paid / 100,
+        owed: owed / 100,
+        net: (paid - owed) / 100,
       };
     });
   });
@@ -394,14 +477,19 @@ export function setupBookActions(
     const debtors = balances.filter((b) => b.net < 0).sort((a, b) => a.net - b.net);
     const result: Settlement[] = [];
     let ci = 0, di = 0;
+    // Use a sub-cent epsilon for comparisons so floating-point residue does not
+    // leave phantom debts/credits that never clear.
+    const EPS = 0.005;
     while (ci < creditors.length && di < debtors.length) {
       const credit = creditors[ci], debt = debtors[di];
       const amount = Math.min(credit.net, -debt.net);
-      if (amount > 0) result.push({ from: debt.member, to: credit.member, amount });
+      if (amount > EPS) {
+        result.push({ from: debt.member, to: credit.member, amount: Math.round(amount * 100) / 100 });
+      }
       credit.net -= amount;
       debt.net += amount;
-      if (credit.net === 0) ci++;
-      if (debt.net === 0) di++;
+      if (credit.net <= EPS) ci++;
+      if (debt.net >= -EPS) di++;
     }
     return result;
   });

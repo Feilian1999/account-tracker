@@ -19,19 +19,7 @@ export function setupUserActions(
   }
 
   async function loginAnonymous(name: string) {
-    userProfile.value.isLoggedIn = false;
-    userProfile.value.authToken = undefined;
     await updateUserProfile(name);
-  }
-
-  async function loginGoogle(data: { id: string; name: string; email: string; avatar: string; token: string }) {
-    userProfile.value.id = data.id;
-    userProfile.value.name = data.name.trim();
-    userProfile.value.email = data.email;
-    userProfile.value.avatar = data.avatar;
-    userProfile.value.authToken = data.token;
-    userProfile.value.isLoggedIn = true;
-    await save();
   }
 
   async function setTheme(theme: "light" | "dark" | "system" | "sheep") {
@@ -50,7 +38,6 @@ export function setupUserActions(
     isProfileSet,
     updateUserProfile,
     loginAnonymous,
-    loginGoogle,
     setTheme,
     setAnimations,
   };

@@ -85,7 +85,7 @@ const router = useRouter();
 const store = useTrackerStore();
 
 onMounted(() => {
-  if (store.userProfile.isLoggedIn && store.isProfileSet) {
+  if (store.isProfileSet) {
     router.replace("/dashboard");
   }
 });

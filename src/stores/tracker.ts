@@ -23,7 +23,7 @@ export const useTrackerStore = defineStore("tracker", () => {
   const currentBookId = ref<string | null>(null);
   const personalRecords = ref<PersonalRecord[]>([]);
 
-  const userProfileDefaults: UserProfile = { id: "", name: "", theme: "sheep", animations: true, isLoggedIn: false };
+  const userProfileDefaults: UserProfile = { id: "", memberId: "", name: "", theme: "sheep", animations: true };
   // Pre-initialize theme from localStorage to prevent flash
   const initialTheme = (localStorage.getItem("account-tracker-theme") as any) || "sheep";
   const userProfile = ref<UserProfile>({ ...userProfileDefaults, theme: initialTheme });
@@ -96,19 +96,24 @@ export const useTrackerStore = defineStore("tracker", () => {
 
       userProfile.value = { ...userProfileDefaults, ...loadedUserProfile };
 
-      // Ensure user has a UUID
+      // Ensure the secret backup key (used only for cloud backup/restore) exists.
+      let profileChanged = false;
       if (!userProfile.value.id) {
         userProfile.value.id = crypto.randomUUID();
-        console.log(`[tracker] Generated new UUID for user: ${userProfile.value.id}`);
-        // Proactively register the new user on the backend
-        setTimeout(() => {
-          cloudSyncActions.backupByUUID();
-        }, 500);
+        profileChanged = true;
+      }
+      // Ensure a public member identity exists, kept distinct from the secret
+      // backup key so it can be embedded in shared books without leaking it.
+      if (!userProfile.value.memberId) {
+        userProfile.value.memberId = crypto.randomUUID();
+        profileChanged = true;
       }
 
-      // Theme migration: if theme was 'system' (old default) or missing, change to 'sheep'
-      if (!userProfile.value.theme || userProfile.value.theme === "system") {
+      // Default the theme only when unset — never override an explicit choice
+      // (including 'system', which App.vue tracks live).
+      if (!userProfile.value.theme) {
         userProfile.value.theme = "sheep";
+        profileChanged = true;
       }
 
       customCategories.value = loadedCustomCategories || [];
@@ -123,11 +128,8 @@ export const useTrackerStore = defineStore("tracker", () => {
 
       isInitialized.value = true;
 
-      // Save the migrated profile if needed (theme change or new UUID)
-      if (
-        (userProfile.value.theme === "sheep" && loadedUserProfile?.theme !== "sheep") ||
-        (!loadedUserProfile?.id)
-      ) {
+      // Persist the migrated profile if we generated an id/memberId or defaulted the theme.
+      if (profileChanged) {
         await saveToStorage(STORAGE_KEYS.USER_PROFILE, userProfile.value);
       }
 

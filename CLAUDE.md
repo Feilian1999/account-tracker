@@ -47,7 +47,7 @@ src/
 │   ├── piggyImport.ts    # Parser for 小豬記帳本 .txt backup
 │   └── everydayImport.ts # Parser for 天天記帳 .csv backup
 ├── views/
-│   ├── Login.vue         # Google OAuth callback handler + restore-from-cloud prompt
+│   ├── Login.vue         # Anonymous name-entry screen (sets profile name, then → /dashboard)
 │   ├── Profile.vue       # Settings, cloud sync buttons, UUID backup/restore
 │   ├── Home.vue          # Personal records tab
 │   ├── Books.vue         # Shared books tab
@@ -66,31 +66,28 @@ RecordItem      { id, bookId, type, amount, category, date, note, paidById, spli
 PersonalRecord  { id, type, amount, category, date, note, sourceBookId?, isSynced? }
 Category        { id, name, type, icon, color, isDefault, isSynced? }
 RecordTemplate  { id, name, type, amount, category, note, isSynced? }
-UserProfile     { id, name, avatar?, email?, theme, animations, isLoggedIn, authToken? }
+UserProfile     { id, memberId, name, theme, animations }
 ```
 
-`isSynced?: boolean` — `undefined`/`false` = not yet pushed to cloud; `true` = in sync with cloud.
+`isSynced?: boolean` — `undefined`/`false` = not yet backed up to cloud; `true` = backed up.
+
+`UserProfile.id` is the **secret** cloud-backup key (never leaves the device except to the backup endpoint). `UserProfile.memberId` is the **public** identity embedded in shared-book member lists. They are deliberately different so joining a shared book never leaks the backup key. There are no accounts/login — every user is anonymous.
 
 ## Sync Architecture
 
-Two separate sync paths:
+Two separate cloud paths (no Google/JWT — that was removed):
 
-### 1. Main Cloud Sync (`/api/sync/push` & `/api/sync/pull`)
-- Auth: Google JWT required
-- Push = full replace on backend (DELETE all → INSERT all)
-- Endpoints: `POST /api/sync/push`, `GET /api/sync/pull`
-- Triggered manually from Profile.vue (`syncToCloud`, `overwriteFromCloud`)
-- On success: all entities marked `isSynced=true`, all tombstones cleared
+### 1. UUID Backup (`/api/sync/push-uuid`, `/api/sync/pull-uuid/{uuid}`)
+- Identified by the user's secret local UUID (`userProfile.id`); no auth.
+- Push = full replace on backend (DELETE all → INSERT all, one transaction).
+- Manual only, from Profile.vue (`backupByUUID`, `restoreByUUID`).
+- On backup success: all entities marked `isSynced=true`, all tombstones cleared.
 
 ### 2. Shared Book Sync (`/api/shared/{code}`)
-- No auth required, identified by 6-char share code
-- Per-book: `updateSharedBook` (push), `fetchSharedBook` (pull)
-- Auto-triggered: every `addRecord`/`updateRecord`/`deleteRecord` (debounced 300ms)
-- Auto-pulled: on `selectBook` / `watch(currentBookId)`
-
-### 3. UUID Backup (`/api/sync/push-uuid`, `/api/sync/pull-uuid/{uuid}`)
-- No auth required, identified by user's local UUID
-- Used for anonymous users and as fallback backup
+- No auth, identified by share code. Members embed `memberId` (not the backup id).
+- Per-book: `updateSharedBook` (push, backend MERGES by record id + `deletedIds`), `fetchSharedBook` (pull).
+- Auto-triggered: every `addRecord`/`updateRecord`/`deleteRecord` — debounced 300ms **per book** (keyed timer).
+- Auto-pulled: on `selectBook` / `watch(currentBookId)`. Pull only overwrites book name/members when there is no pending local edit (`book.isSynced !== false`).
 
 ## Pending Sync & Tombstone System
 
@@ -99,7 +96,7 @@ Protects locally-created/modified data from being overwritten by cloud pulls.
 ### `isSynced` flag
 Set to `false` on: `addRecord`, `updateRecord`, `createBook`, `updateBook`, `addMemberToBook`, `addPersonalRecord`, `updatePersonalRecord`, `addCustomCategory`, `addTemplate`, `updateTemplate`, `importPersonalRecords`
 
-Set to `true` on: successful `syncToCloud`, successful `backupByUUID`, items received via `applyCloudData`
+Set to `true` on: successful `backupByUUID`; shared-book records after a successful shared push; items from `restoreByUUID`
 
 ### Tombstone arrays (stored in IndexedDB)
 ```
@@ -110,31 +107,10 @@ pendingDeleteCustomCategoryIds[]  // STORAGE_KEYS.PENDING_DELETE_CUSTOM_CATEGORI
 pendingDeleteTemplateIds[]        // STORAGE_KEYS.PENDING_DELETE_TEMPLATES
 ```
 Added to on: every `delete*()` call (regardless of `isSynced` state)
-Cleared on: successful `syncToCloud` or `backupByUUID`
+Cleared on: successful `backupByUUID`; record tombstones for a shared book are also cleared after that book's successful shared push (so deletes propagate via `deletedIds`).
 
-### `applyCloudData` merge logic (in `cloud-sync.ts`)
-For each entity type:
-1. Filter cloud items that are in tombstone → excluded
-2. Local pending (`isSynced=false`) overrides same-ID cloud item
-3. Local pending items not in cloud → preserved as-is
-4. Everything from cloud → `isSynced=true`
-
-### `overwriteFromCloud` / `restoreByUUID`
-Explicit user action = full overwrite. Shows `sync.confirmOverwriteWithPending` warning if `countPending() > 0`.
-
-## Google OAuth Flow
-
-```
-User clicks Google Login
-→ redirect to GET /api/auth/google/login
-→ Google redirects to GET /api/auth/google/callback
-→ backend redirects to frontend /?token=...&name=...&id=...&email=...&avatar=...
-→ Login.vue onMounted detects query params
-→ calls store.loginGoogle() to save profile
-→ calls pullSyncData() to check for existing cloud data
-→ if cloud has data: shows restore prompt (applyCloudData = smart merge, NOT full overwrite)
-→ if no cloud data: redirect to /dashboard
-```
+### `restoreByUUID`
+Explicit user action = full overwrite of local state with the backup. Shows `sync.confirmOverwriteWithPending` warning if `countPending() > 0`, and adopts the restored UUID as the local backup key.
 
 ## Storage Keys (IndexedDB)
 
@@ -155,10 +131,7 @@ VITE_API_URL=http://localhost:8080/api   # backend base URL
 Backend `.env`:
 ```
 DATABASE_URL=postgresql://...
-GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET
-GOOGLE_REDIRECT_URI
-JWT_SECRET
-FRONTEND_URL
+CORS_ORIGINS=...   # optional, extra comma-separated allowed origins
 PORT=8080
 ```
 

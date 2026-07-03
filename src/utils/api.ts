@@ -10,25 +10,6 @@ const api = axios.create({
   },
 });
 
-// Request Interceptor to attach JWT token
-api.interceptors.request.use(
-  (config) => {
-    try {
-      const profileRaw = localStorage.getItem('tracker_user_profile');
-      if (profileRaw) {
-        const profile = JSON.parse(profileRaw);
-        if (profile.authToken) {
-          config.headers.Authorization = `Bearer ${profile.authToken}`;
-        }
-      }
-    } catch (e) {
-      console.error("Failed to parse profile for auth token", e);
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -36,15 +17,6 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-// Sync APIs
-export const pushSyncData = async (data: Record<string, unknown>) => {
-  return api.post("/sync/push", data);
-};
-
-export const pullSyncData = async () => {
-  return api.get("/sync/pull");
-};
 
 // UUID-based Sync (Anonymous/Manual)
 export const pushSyncByUUID = async (uuid: string, data: Record<string, unknown>) => {

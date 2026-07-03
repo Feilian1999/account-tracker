@@ -12,6 +12,10 @@ function getDB() {
       upgrade(db) {
         db.createObjectStore(STORE_NAME);
       },
+    }).catch((e) => {
+      // Don't cache a rejected promise — allow the next call to retry the open.
+      dbPromise = null;
+      throw e;
     });
   }
   return dbPromise;
@@ -27,11 +31,15 @@ export async function migrateFromLocalStorage() {
     if (localData) {
       try {
         const parsed = JSON.parse(localData);
-        await saveToStorage(storageKey, parsed);
-        // After successful migration to IDB, we can optionally clear localStorage
-        // but it's safer to keep it for one more version or clear it specifically.
-        localStorage.removeItem(storageKey);
-        console.log(`[storage] Migrated ${key} from localStorage to IndexedDB.`);
+        const ok = await saveToStorage(storageKey, parsed);
+        // Only drop the localStorage copy once the IndexedDB write is confirmed,
+        // otherwise a failed write (quota, private mode) would destroy the only copy.
+        if (ok) {
+          localStorage.removeItem(storageKey);
+          console.log(`[storage] Migrated ${key} from localStorage to IndexedDB.`);
+        } else {
+          console.warn(`[storage] Kept localStorage copy of ${key} — IndexedDB write failed.`);
+        }
       } catch (e) {
         console.error(`[storage] Failed to migrate ${key}:`, e);
       }
@@ -51,15 +59,17 @@ export async function loadFromStorage<T>(key: string, fallback: T): Promise<T> {
   }
 }
 
-export async function saveToStorage(key: string, data: unknown) {
+export async function saveToStorage(key: string, data: unknown): Promise<boolean> {
   try {
     const db = await getDB();
     // Deep-clone to strip Vue reactive Proxy wrappers — IndexedDB's
     // structured-clone algorithm cannot handle Proxy objects.
     const raw = JSON.parse(JSON.stringify(data));
     await db.put(STORE_NAME, raw, key);
+    return true;
   } catch (e) {
     console.error(`[storage] Failed to save key "${key}" to IndexedDB:`, e);
+    return false;
   }
 }
 

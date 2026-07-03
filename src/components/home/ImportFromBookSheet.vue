@@ -54,19 +54,26 @@ const store = useTrackerStore();
 const { t } = useI18n();
 const toast = useToast();
 
-const handleImport = (
+const handleImport = async (
   bookId: string,
   memberId: string,
   memberName: string,
   bookName: string,
 ) => {
   const prev = store.currentBookId;
+  // Restore the previously-selected book — including the "none selected" case,
+  // so inspecting a book for import doesn't silently change the global current book.
+  const restorePrev = () => {
+    if (prev) store.selectBook(prev);
+    else store.currentBookId = null;
+  };
+
   store.selectBook(bookId);
   const stat = store.memberStats.find((s) => s.member.id === memberId);
 
   if (!stat || stat.owed <= 0) {
     toast.warning(t("home.importNoExpense", { member: memberName, book: bookName }));
-    if (prev) store.selectBook(prev);
+    restorePrev();
     return;
   }
 
@@ -75,9 +82,9 @@ const handleImport = (
       t("home.importConfirm", { member: memberName, book: bookName, amount: stat.owed.toLocaleString() }),
     )
   ) {
-    store.importMyShareFromBook(memberId);
+    await store.importMyShareFromBook(memberId);
   }
-  if (prev) store.selectBook(prev);
+  restorePrev();
   emit("update:modelValue", false);
 };
 </script>

@@ -266,8 +266,11 @@ const resetCategory = () => {
 };
 
 const onClose = (val: boolean) => {
-  if (!val) {
+  if (!val && isCreating.value) {
+    // In the create/edit view, closing should return to the template list
+    // rather than dismissing the whole modal and losing that context.
     isCreating.value = false;
+    return;
   }
   emit("update:modelValue", val);
 };

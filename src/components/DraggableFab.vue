@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const emit = defineEmits(["click"]);
 
@@ -149,10 +149,15 @@ const onFabClick = () => {
   }
 };
 
+// Re-clamp on resize/orientation change so the FAB can't end up off-screen.
+const onResize = () => clampFab(fabPos.value.x, fabPos.value.y);
+onMounted(() => window.addEventListener("resize", onResize));
+
 onBeforeUnmount(() => {
   window.removeEventListener("mousemove", onDragMove);
   window.removeEventListener("mouseup", onDragEnd);
   window.removeEventListener("touchmove", onTouchMove);
   window.removeEventListener("touchend", onTouchEnd);
+  window.removeEventListener("resize", onResize);
 });
 </script>

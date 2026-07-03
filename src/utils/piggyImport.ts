@@ -46,20 +46,29 @@ export function parsePiggyBackup(content: string): PersonalRecord[] {
     }
   }
 
-  // Filter and map records
+  // Filter and map records. Validate per-record so one malformed line cannot
+  // abort the whole import or poison every total with NaN.
   for (const data of rawRecords) {
-    const category = categories[data.i];
-    const type = data.j === "Expense" ? "expense" : "income";
-    const dateString = toLocalDateString(data.c);
+    try {
+      const amount = typeof data.f === "number" ? data.f : parseFloat(data.f);
+      if (!isFinite(amount)) continue;
 
-    parsedRecords.push({
-      id: crypto.randomUUID(),
-      type: type,
-      amount: data.f,
-      category: category?.name || "其他",
-      date: dateString,
-      note: data.h || "",
-    });
+      const category = categories[data.i];
+      const type = data.j === "Expense" ? "expense" : "income";
+      const dateString = toLocalDateString(data.c);
+      if (!dateString) continue;
+
+      parsedRecords.push({
+        id: crypto.randomUUID(),
+        type,
+        amount,
+        category: category?.name || "其他",
+        date: dateString,
+        note: data.h || "",
+      });
+    } catch (e) {
+      console.error("Failed to convert record:", data, e);
+    }
   }
 
   return parsedRecords;

@@ -76,6 +76,7 @@ const nameInputId = `${baseId}-name`;
 const membersInputId = `${baseId}-members`;
 
 const form = ref({ name: "", membersText: "" });
+const submitting = ref(false);
 
 watch(
   () => props.modelValue,
@@ -105,22 +106,27 @@ const close = () => {
 useEscapeKey(toRef(props, "modelValue"), close);
 
 const handleCreate = async () => {
-  if (!form.value.name.trim()) return;
+  if (!form.value.name.trim() || submitting.value) return;
   const memberNames = form.value.membersText
     .split("\n")
     .map((name) => name.trim())
     .filter(Boolean);
   const defaultMembers = memberNames.length > 0 ? memberNames : [store.userProfile.name || t("common.me")];
 
-  if (props.editBookId) {
-    await store.updateBook(props.editBookId, form.value.name.trim(), defaultMembers);
-    close();
-    return;
-  }
+  submitting.value = true;
+  try {
+    if (props.editBookId) {
+      await store.updateBook(props.editBookId, form.value.name.trim(), defaultMembers);
+      close();
+      return;
+    }
 
-  const book = await store.createBook(form.value.name.trim(), defaultMembers);
-  if (!book) return;
-  close();
-  emit("created", book.id);
+    const book = await store.createBook(form.value.name.trim(), defaultMembers);
+    if (!book) return;
+    close();
+    emit("created", book.id);
+  } finally {
+    submitting.value = false;
+  }
 };
 </script>

@@ -55,6 +55,7 @@
 
 <script setup lang="ts">
 import { ref, useId, watch, toRef } from "vue";
+import { useI18n } from "vue-i18n";
 import { useTrackerStore } from "../../stores/tracker";
 import { useEscapeKey } from "../../composables/useEscapeKey";
 
@@ -67,6 +68,7 @@ const emit = defineEmits<{
   (e: "update:modelValue", val: boolean): void;
 }>();
 
+const { t } = useI18n();
 const copied = ref(false);
 const store = useTrackerStore();
 const baseId = useId();
@@ -98,7 +100,7 @@ const copyCode = async () => {
     }, 2000);
   } catch (err) {
     console.error("Failed to copy:", err);
-    prompt("Copy the code manually:", props.shareCode);
+    prompt(t("books.share.copyManually"), props.shareCode);
   }
 };
 </script>

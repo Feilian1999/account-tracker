@@ -3,6 +3,7 @@ import { computed } from "vue";
 import type { PersonalRecord } from "./types";
 import { useToast } from "../composables/useToast";
 import { getLocalDateString } from "../utils/date";
+import { i18n } from "../i18n";
 
 /**
  * Personal record CRUD, summaries, and book import.
@@ -60,7 +61,7 @@ export function setupPersonalActions(
   );
 
   // ---- Import from Book ----
-  const importMyShareFromBook = (memberId: string) => {
+  const importMyShareFromBook = async (memberId: string) => {
     if (!currentBook.value) return;
 
     const alreadyImported = personalRecords.value.some(
@@ -69,7 +70,7 @@ export function setupPersonalActions(
     if (alreadyImported) {
       const toast = useToast();
       toast.warning(
-        `已經匯入過「${currentBook.value.name}」的紀錄了！如果想重新測試，請先在列表中刪除舊的紀錄喔。`,
+        i18n.global.t("personal.alreadyImported", { name: currentBook.value.name }),
       );
       return;
     }
@@ -77,7 +78,7 @@ export function setupPersonalActions(
     if (!stat || stat.owed <= 0) return;
 
     const today = getLocalDateString();
-    addPersonalRecord({
+    await addPersonalRecord({
       type: "expense",
       amount: stat.owed,
       category: currentBook.value.name,

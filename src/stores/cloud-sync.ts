@@ -1,13 +1,14 @@
 import { ref, type Ref } from "vue";
 import type { Book, RecordItem, Category, PersonalRecord, RecordTemplate, UserProfile } from "./types";
-import { pushSyncData, pullSyncData, pushSyncByUUID, pullSyncByUUID } from "../utils/api";
+import { pushSyncByUUID, pullSyncByUUID } from "../utils/api";
 import { saveToStorage, STORAGE_KEYS } from "./storage";
 import { useToast } from "../composables/useToast";
 import { i18n } from "../i18n";
 
 /**
- * Full cloud sync (push/pull all data).
- * Used for authenticated Google users.
+ * Cloud backup/restore keyed by the user's secret local UUID.
+ * There is no account system — the UUID is the only credential, so it must be
+ * kept secret (see UserProfile.id vs memberId).
  */
 export function setupCloudSyncActions(
   userProfile: Ref<UserProfile>,
@@ -27,11 +28,7 @@ export function setupCloudSyncActions(
   const { t } = i18n.global;
   const isSyncing = ref(false);
 
-  // =====================
-  //  Helpers
-  // =====================
-
-  /** Count all locally-modified records not yet pushed to cloud. */
+  /** Count all locally-modified items not yet pushed to cloud. */
   const countPending = () =>
     records.value.filter((r) => !r.isSynced).length +
     personalRecords.value.filter((r) => !r.isSynced).length +
@@ -67,141 +64,6 @@ export function setupCloudSyncActions(
     ]);
   };
 
-  // =====================
-  //  Smart Merge helper
-  // =====================
-
-  /**
-   * Merge a cloud array with local pending state.
-   * - Cloud items are marked isSynced = true
-   * - Local pending (isSynced = false) override same-ID cloud items
-   * - Local pending items not in cloud are preserved
-   * - Items in tombstone set are excluded from cloud data
-   */
-  function mergeWithCloud<T extends { id: string; isSynced?: boolean }>(
-    cloudItems: T[],
-    localItems: T[],
-    tombstoneIds: string[]
-  ): T[] {
-    const tombstoneSet = new Set(tombstoneIds);
-    const localPending = localItems.filter((item) => !item.isSynced);
-    const localPendingById = new Map(localPending.map((item) => [item.id, item]));
-
-    // Filter tombstoned items and apply cloud data (local pending overrides same ID)
-    const cloudFiltered = cloudItems
-      .filter((item) => !tombstoneSet.has(item.id))
-      .map((item) => ({ ...localPendingById.get(item.id) ?? item, isSynced: localPendingById.has(item.id) ? false : true } as T));
-
-    // Add local pending items not already represented in cloud
-    const cloudIds = new Set(cloudFiltered.map((item) => item.id));
-    const extraLocal = localPending.filter((item) => !cloudIds.has(item.id));
-
-    return [...cloudFiltered, ...extraLocal];
-  }
-
-  // =====================
-  //  applyCloudData (Smart Merge)
-  // =====================
-
-  const applyCloudData = async (data: any) => {
-    if (!data) return;
-
-    customCategories.value = mergeWithCloud(
-      (data.categories || []) as Category[],
-      customCategories.value,
-      pendingDeleteCustomCategoryIds.value
-    );
-
-    books.value = mergeWithCloud(
-      (data.books || []) as Book[],
-      books.value,
-      pendingDeleteBookIds.value
-    );
-
-    records.value = mergeWithCloud(
-      (data.records || []) as RecordItem[],
-      records.value,
-      pendingDeleteRecordIds.value
-    );
-
-    personalRecords.value = mergeWithCloud(
-      (data.personal_records || []) as PersonalRecord[],
-      personalRecords.value,
-      pendingDeletePersonalRecordIds.value
-    );
-
-    recordTemplates.value = mergeWithCloud(
-      (data.templates || []) as RecordTemplate[],
-      recordTemplates.value,
-      pendingDeleteTemplateIds.value
-    );
-
-    await save();
-  };
-
-  // =====================
-  //  Sync Actions
-  // =====================
-
-  const syncToCloud = async () => {
-    if (!userProfile.value.isLoggedIn || !userProfile.value.authToken || isSyncing.value) return;
-    isSyncing.value = true;
-    const payload = {
-      books: books.value,
-      records: records.value,
-      personal_records: personalRecords.value,
-      categories: customCategories.value,
-      templates: recordTemplates.value,
-    };
-    try {
-      await pushSyncData(payload);
-      await markAllSynced();
-      await save();
-      toast.success(t("sync.success"));
-    } catch {
-      toast.error(t("sync.error"));
-    } finally {
-      isSyncing.value = false;
-    }
-  };
-
-  const overwriteFromCloud = async () => {
-    if (!userProfile.value.isLoggedIn || !userProfile.value.authToken || isSyncing.value) return;
-
-    const pendingCount = countPending();
-    if (pendingCount > 0) {
-      if (!confirm(t("sync.confirmOverwriteWithPending", { count: pendingCount }))) return;
-    } else {
-      if (!confirm(t("sync.confirmOverwrite"))) return;
-    }
-
-    isSyncing.value = true;
-    try {
-      const response = await pullSyncData();
-      if (response.data) {
-        // Full overwrite: reset all pending state first, then apply
-        pendingDeleteRecordIds.value = [];
-        pendingDeletePersonalRecordIds.value = [];
-        pendingDeleteBookIds.value = [];
-        pendingDeleteCustomCategoryIds.value = [];
-        pendingDeleteTemplateIds.value = [];
-
-        customCategories.value = (response.data.categories || []).map((c: Category) => ({ ...c, isSynced: true }));
-        books.value = (response.data.books || []).map((b: Book) => ({ ...b, isSynced: true }));
-        records.value = (response.data.records || []).map((r: RecordItem) => ({ ...r, isSynced: true }));
-        personalRecords.value = (response.data.personal_records || []).map((r: PersonalRecord) => ({ ...r, isSynced: true }));
-        recordTemplates.value = (response.data.templates || []).map((t: RecordTemplate) => ({ ...t, isSynced: true }));
-
-        await save();
-        toast.success(t("sync.restoreSuccess"));
-      }
-    } catch {
-      toast.error(t("sync.pullError"));
-    } finally {
-      isSyncing.value = false;
-    }
-  };
-
   const backupByUUID = async () => {
     if (isSyncing.value) return false;
     isSyncing.value = true;
@@ -227,20 +89,20 @@ export function setupCloudSyncActions(
   };
 
   const restoreByUUID = async (uuid: string) => {
-    if (!uuid || isSyncing.value) return;
+    if (!uuid || isSyncing.value) return false;
 
     const pendingCount = countPending();
     if (pendingCount > 0) {
-      if (!confirm(t("sync.confirmOverwriteWithPending", { count: pendingCount }))) return;
+      if (!confirm(t("sync.confirmOverwriteWithPending", { count: pendingCount }))) return false;
     } else {
-      if (!confirm(t("sync.confirmOverwrite"))) return;
+      if (!confirm(t("sync.confirmOverwrite"))) return false;
     }
 
     isSyncing.value = true;
     try {
       const response = await pullSyncByUUID(uuid);
       if (response.data) {
-        // Full overwrite: reset all pending state first, then apply
+        // Full overwrite: reset all pending state first, then apply.
         pendingDeleteRecordIds.value = [];
         pendingDeletePersonalRecordIds.value = [];
         pendingDeleteBookIds.value = [];
@@ -253,7 +115,7 @@ export function setupCloudSyncActions(
         personalRecords.value = (response.data.personal_records || []).map((r: PersonalRecord) => ({ ...r, isSynced: true }));
         recordTemplates.value = (response.data.templates || []).map((t: RecordTemplate) => ({ ...t, isSynced: true }));
 
-        // Also update local user ID to match the restored backup
+        // Adopt the restored backup's UUID as our own backup key.
         userProfile.value.id = uuid;
         await save();
 
@@ -268,5 +130,5 @@ export function setupCloudSyncActions(
     return false;
   };
 
-  return { syncToCloud, overwriteFromCloud, backupByUUID, restoreByUUID, applyCloudData, isSyncing };
+  return { backupByUUID, restoreByUUID, countPending, isSyncing };
 }

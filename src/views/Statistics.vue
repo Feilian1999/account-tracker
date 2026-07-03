@@ -241,10 +241,7 @@ const trendTitle = computed(() => {
   return "";
 });
 
-const trendMaxValRaw = ref(0);
-const trendMaxVal = computed(() => trendMaxValRaw.value);
-
-const trendData = computed(() => {
+const trendEntries = computed<[string, number][]>(() => {
   const records = filteredRecords.value;
   const mode = dateFilter.value.mode;
   const type = categoryTab.value;
@@ -285,12 +282,21 @@ const trendData = computed(() => {
     }
   }
 
-  const entries = [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  const maxVal = entries.reduce((max, [, value]) => Math.max(max, value), 0);
-  trendMaxValRaw.value = maxVal;
+  return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+});
+
+// Derived (no side effects) — the previous code wrote a ref inside trendData,
+// which only worked because the template happened to read :data before :maxVal.
+const trendMaxVal = computed(() =>
+  trendEntries.value.reduce((max, [, value]) => Math.max(max, value), 0),
+);
+
+const trendData = computed(() => {
+  const mode = dateFilter.value.mode;
+  const maxVal = trendMaxVal.value;
   if (maxVal === 0) return [];
 
-  return entries.map(([key, value]) => {
+  return trendEntries.value.map(([key, value]) => {
     let shortLabel = key;
     if (mode === "year") shortLabel = String(parseInt(key.slice(5, 7), 10));
     if (mode === "month") shortLabel = String(parseInt(key.slice(8, 10), 10));

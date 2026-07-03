@@ -312,6 +312,7 @@ const defaultForm = () => ({
 const form = ref(defaultForm());
 const showKeyboard = ref(false);
 const shouldSaveAsTemplate = ref(false);
+const submitting = ref(false);
 
 const evaluateAmount = () => {
   const str = form.value.amountStr.trim();
@@ -320,8 +321,9 @@ const evaluateAmount = () => {
   if (/^[\d+\-*/. ()]+$/.test(str)) {
     try {
       const result = new Function(`return ${str}`)();
-      if (!isNaN(result) && result > 0) {
-        form.value.amountStr = String(Math.floor(result));
+      if (isFinite(result) && result > 0) {
+        // Keep up to 2 decimals (flooring dropped cents and made <1 unsaveable).
+        form.value.amountStr = String(Math.round(result * 100) / 100);
       }
     } catch {
       // ignore
@@ -403,6 +405,9 @@ watch(
       }
 
       if (props.initialTemplateId) {
+        // Reset to defaults first so a stale date/note from a previous session
+        // doesn't leak into the templated record.
+        form.value = defaultForm();
         applyTemplate(props.initialTemplateId);
         return;
       }
@@ -416,37 +421,46 @@ watch(
 );
 
 const submit = async () => {
+  if (submitting.value) return;
   evaluateAmount();
   const amt = Number(form.value.amountStr);
   if (!amt || isNaN(amt) || amt <= 0) return;
+  // Guard against an empty/cleared date, which would crash the Home view's
+  // date grouping (parseLocalDateString throws on "").
+  if (!form.value.date) return;
 
-  const data = {
-    type: form.value.type,
-    amount: amt,
-    category: currentCategoryObj.value?.name || form.value.categoryId,
-    date: form.value.date,
-    note: form.value.note,
-  };
+  submitting.value = true;
+  try {
+    const data = {
+      type: form.value.type,
+      amount: amt,
+      category: currentCategoryObj.value?.name || form.value.categoryId,
+      date: form.value.date,
+      note: form.value.note,
+    };
 
-  if (props.editRecordId) {
-    await store.updatePersonalRecord(props.editRecordId, data);
-  } else {
-    await store.addPersonalRecord(data);
+    if (props.editRecordId) {
+      await store.updatePersonalRecord(props.editRecordId, data);
+    } else {
+      await store.addPersonalRecord(data);
 
-    // Save as template if requested
-    if (shouldSaveAsTemplate.value) {
-      await store.addTemplate({
-        name:
-          form.value.note ||
-          currentCategoryObj.value?.name ||
-          form.value.categoryId,
-        type: form.value.type,
-        category: form.value.categoryId,
-        amount: amt,
-        note: form.value.note,
-      });
+      // Save as template if requested
+      if (shouldSaveAsTemplate.value) {
+        await store.addTemplate({
+          name:
+            form.value.note ||
+            currentCategoryObj.value?.name ||
+            form.value.categoryId,
+          type: form.value.type,
+          category: form.value.categoryId,
+          amount: amt,
+          note: form.value.note,
+        });
+      }
     }
+    emit("update:modelValue", false);
+  } finally {
+    submitting.value = false;
   }
-  emit("update:modelValue", false);
 };
 </script>

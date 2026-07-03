@@ -521,8 +521,10 @@ const evaluateAmount = () => {
   if (/^[\d+\-*/. ()]+$/.test(str)) {
     try {
       const result = new Function(`return ${str}`)();
-      if (!isNaN(result) && result > 0) {
-        form.value.amountStr = String(Math.floor(result));
+      if (isFinite(result) && result > 0) {
+        // Keep up to 2 decimals — flooring silently turned 10.99 into 10 and
+        // 0.5 into an unsaveable 0.
+        form.value.amountStr = String(Math.round(result * 100) / 100);
       }
     } catch {
       // ignore
@@ -565,10 +567,11 @@ const remainingAmount = computed(() => {
   return Math.round((total - filledAllocated.value) * 100) / 100;
 });
 
-// Per-person auto amount for each unfilled member
+// Per-person auto amount for each unfilled member (display hint; the exact
+// cent-accurate distribution is computed on submit).
 const autoPerPerson = computed(() => {
   if (unfilledCount.value === 0) return 0;
-  return Math.floor(remainingAmount.value / unfilledCount.value);
+  return Math.round((remainingAmount.value / unfilledCount.value) * 100) / 100;
 });
 
 const isSplitValid = computed(() => {
@@ -730,7 +733,10 @@ const toggleAll = () => {
 
 const close = () => emit("update:modelValue", false);
 
+const submitting = ref(false);
+
 const handleSubmit = async () => {
+  if (submitting.value) return;
   evaluateAmount();
   const amt = Number(form.value.amountStr);
   if (!amt || isNaN(amt) || amt <= 0) return;
@@ -748,20 +754,42 @@ const handleSubmit = async () => {
   )
     return;
 
+  submitting.value = true;
+  try {
   // Build custom amounts map for storage
   let splitCustomAmountsOut: Record<string, number> | undefined;
   if (isExpense && form.value.splitMode === "custom") {
     splitCustomAmountsOut = {};
+    const unfilled = props.members.filter((m) => isUnfilled(m.id));
+    // Distribute the remaining total across unfilled members in cents, giving
+    // the leftover cents to the first members so the shares sum EXACTLY to the
+    // remaining amount (flooring each share left a permanent unsettleable gap).
+    const totalCents = Math.round(Math.max(0, remainingAmount.value) * 100);
+    const n = unfilled.length;
+    const base = n > 0 ? Math.floor(totalCents / n) : 0;
+    let extra = n > 0 ? totalCents - base * n : 0;
+    const unfilledSet = new Set(unfilled.map((m) => m.id));
     for (const m of props.members) {
-      if (isUnfilled(m.id)) {
-        splitCustomAmountsOut[m.id] = autoPerPerson.value;
+      if (unfilledSet.has(m.id)) {
+        let cents = base;
+        if (extra > 0) {
+          cents += 1;
+          extra--;
+        }
+        splitCustomAmountsOut[m.id] = cents / 100;
       } else {
-        splitCustomAmountsOut[m.id] = Number(
-          form.value.splitCustomAmounts[m.id] || 0,
-        );
+        splitCustomAmountsOut[m.id] = Number(form.value.splitCustomAmounts[m.id] || 0);
       }
     }
   }
+
+  // In custom mode the members actually charged are those with a positive share,
+  // not the (possibly stale) equal-mode selection.
+  const splitAmongOut = !isExpense
+    ? []
+    : form.value.splitMode === "custom" && splitCustomAmountsOut
+      ? Object.keys(splitCustomAmountsOut).filter((id) => (splitCustomAmountsOut![id] ?? 0) > 0)
+      : form.value.splitAmongIds;
 
   const data = {
     type: form.value.type,
@@ -770,7 +798,7 @@ const handleSubmit = async () => {
     date: form.value.date,
     note: form.value.note,
     paidById: isExpense ? form.value.paidById : "",
-    splitAmongIds: isExpense ? form.value.splitAmongIds : [],
+    splitAmongIds: splitAmongOut,
     splitCustomAmounts: splitCustomAmountsOut,
   };
 
@@ -794,6 +822,9 @@ const handleSubmit = async () => {
     }
   }
   close();
+  } finally {
+    submitting.value = false;
+  }
 };
 watch(
   () => props.modelValue,

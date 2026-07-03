@@ -53,14 +53,13 @@ export interface RecordTemplate {
 }
 
 export interface UserProfile {
+  /** Secret backup key (UUID). Used only for cloud backup/restore. Never shared. */
   id: string;
+  /** Public identity used to recognise this user inside shared books. Safe to expose. */
+  memberId: string;
   name: string;
-  avatar?: string;
-  email?: string;
   theme: "light" | "dark" | "system" | "sheep";
   animations: boolean;
-  isLoggedIn: boolean;
-  authToken?: string;
 }
 
 export interface Category {

@@ -44,12 +44,7 @@ router.beforeEach(async (to) => {
     return { name: "home" };
   }
 
-  // If already FORMALLY logged in (Google), don't let them go back to login
-  if (store.userProfile.isLoggedIn && to.name === "login") {
-    return { name: "home" }; // home is now /dashboard
-  }
-
-  // Otherwise (Anonymous or Normal navigation), proceed
+  // Otherwise proceed
 });
 
 export default router;

@@ -1,25 +1,43 @@
 import { onMounted, onUnmounted, Ref } from "vue";
 
 /**
- * Composable to handle Escape key press for closing dialogs/modals.
- * @param isActive - Reactive reference to the dialog's visibility state.
- * @param onEscape - Callback function to execute when Escape is pressed while isActive is true.
+ * Escape-to-close for dialogs/modals.
+ *
+ * All dialogs share a single window listener and a stack, so one Escape press
+ * closes only the TOP-MOST active dialog instead of every stacked overlay at once.
  */
-export function useEscapeKey(isActive: Ref<boolean>, onEscape: () => void) {
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Escape" && isActive.value) {
-      onEscape();
+type Entry = { isActive: Ref<boolean>; onEscape: () => void };
+
+const stack: Entry[] = [];
+let listening = false;
+
+function handleKeyDown(e: KeyboardEvent) {
+  if (e.key !== "Escape") return;
+  for (let i = stack.length - 1; i >= 0; i--) {
+    if (stack[i].isActive.value) {
+      stack[i].onEscape();
+      break;
     }
-  };
+  }
+}
+
+export function useEscapeKey(isActive: Ref<boolean>, onEscape: () => void) {
+  const entry: Entry = { isActive, onEscape };
 
   onMounted(() => {
-    window.addEventListener("keydown", handleKeyDown);
+    stack.push(entry);
+    if (!listening) {
+      window.addEventListener("keydown", handleKeyDown);
+      listening = true;
+    }
   });
 
   onUnmounted(() => {
-    window.removeEventListener("keydown", handleKeyDown);
+    const idx = stack.indexOf(entry);
+    if (idx >= 0) stack.splice(idx, 1);
+    if (stack.length === 0 && listening) {
+      window.removeEventListener("keydown", handleKeyDown);
+      listening = false;
+    }
   });
-
-  // Optional: Ensure listener is removed if component is unmounted while active
-  // though onUnmounted handles this.
 }
