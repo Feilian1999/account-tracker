@@ -199,6 +199,10 @@ export default {
     restoreConfirm: "Restore Backup",
     restoreSkip: "Keep Local Data",
   },
+  categoryPicker: {
+    title: "Select Category",
+    empty: "No categories available",
+  },
   templates: {
     title: "Record Templates",
     noTemplates: "No templates yet",

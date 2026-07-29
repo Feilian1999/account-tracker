@@ -4,46 +4,6 @@
     :title="editRecordId ? $t('addRecord.title') : $t('home.addRecord')"
     @update:modelValue="$emit('update:modelValue', $event)"
   >
-    <!-- Category Grid (backdrop area) -->
-    <template #categories>
-      <div class="grid grid-cols-4 gap-x-2 gap-y-6 sm:grid-cols-5">
-        <button
-          v-for="cat in activeCats"
-          :key="cat.id"
-          type="button"
-          @click="form.categoryId = cat.id"
-          class="group flex flex-col items-center gap-1.5 transition-all"
-          :class="
-            form.categoryId === cat.id
-              ? 'scale-110 opacity-100'
-              : 'opacity-80 hover:opacity-100'
-          "
-        >
-          <div
-            class="flex h-12 w-12 items-center justify-center rounded-2xl text-[24px] transition-all"
-            :class="
-              form.categoryId === cat.id
-                ? form.type === 'expense'
-                  ? 'bg-red-600 text-white shadow-lg shadow-red-600/30'
-                  : 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                : 'bg-white/80 text-gray-700 dark:bg-gray-800/80 dark:text-gray-300'
-            "
-          >
-            <CategoryIcon :name="cat.icon" />
-          </div>
-          <span
-            class="text-center text-xs leading-tight font-bold whitespace-nowrap text-white drop-shadow-md"
-          >
-            {{
-              $te(`categories.${cat.id}`)
-                ? $t(`categories.${cat.id}`)
-                : cat.name
-            }}
-          </span>
-        </button>
-      </div>
-    </template>
-
     <!-- Header Actions (type toggle + close) -->
     <template #header-actions>
       <div class="flex items-center gap-2">
@@ -156,6 +116,48 @@
         </div>
       </div>
 
+      <!-- 3. Category — opens the picker; kept outside the keyboard's v-show so
+           it stays reachable while the amount is being typed. -->
+      <button
+        type="button"
+        class="flex w-full items-center gap-3 border-b border-gray-100 pb-2 text-left transition-opacity active:opacity-60 dark:border-gray-800"
+        @click="showCategoryPicker = true"
+      >
+        <span class="material-symbols-outlined text-xl text-gray-400"
+          >category</span
+        >
+        <span
+          class="w-16 shrink-0 text-sm font-semibold text-gray-600 dark:text-gray-400"
+          >{{ $t("common.category") }}</span
+        >
+        <span class="flex flex-1 items-center justify-end gap-2 text-right">
+          <span
+            class="text-sm font-bold"
+            :class="
+              form.type === 'expense'
+                ? 'text-red-600 dark:text-red-400'
+                : 'text-emerald-600 dark:text-emerald-400'
+            "
+          >
+            {{
+              $te(`categories.${currentCategoryId}`)
+                ? $t(`categories.${currentCategoryId}`)
+                : currentCategoryObj?.name || $t("common.select")
+            }}
+          </span>
+          <span
+            v-if="currentCategoryId"
+            class="flex h-6 w-6 items-center justify-center rounded-[6px] text-white shadow-sm"
+            :class="form.type === 'expense' ? 'bg-red-600' : 'bg-emerald-600'"
+          >
+            <CategoryIcon :name="currentCategoryIcon" class="text-[14px]" />
+          </span>
+          <span class="material-symbols-outlined text-lg text-gray-400"
+            >chevron_right</span
+          >
+        </span>
+      </button>
+
       <CalculatorKeyboard
         v-if="showKeyboard"
         v-model="form.amountStr"
@@ -164,42 +166,6 @@
       />
 
       <div v-show="!showKeyboard" class="animate-fade-in space-y-4">
-        <!-- 3. Category Display -->
-        <div
-          class="flex items-center gap-3 border-b border-gray-100 pb-2 dark:border-gray-800"
-        >
-          <span class="material-symbols-outlined text-xl text-gray-400"
-            >category</span
-          >
-          <label
-            class="w-16 shrink-0 text-sm font-semibold text-gray-600 dark:text-gray-400"
-            >{{ $t("common.category") }}</label
-          >
-          <div class="flex flex-1 items-center justify-end gap-2 text-right">
-            <span
-              class="text-sm font-bold"
-              :class="
-                form.type === 'expense'
-                  ? 'text-red-600 dark:text-red-400'
-                  : 'text-emerald-600 dark:text-emerald-400'
-              "
-            >
-              {{
-                $te(`categories.${currentCategoryId}`)
-                  ? $t(`categories.${currentCategoryId}`)
-                  : currentCategoryObj?.name || $t("common.select")
-              }}
-            </span>
-            <div
-              v-if="currentCategoryId"
-              class="flex h-6 w-6 items-center justify-center rounded-[6px] text-white shadow-sm"
-              :class="form.type === 'expense' ? 'bg-red-600' : 'bg-emerald-600'"
-            >
-              <CategoryIcon :name="currentCategoryIcon" class="text-[14px]" />
-            </div>
-          </div>
-        </div>
-
         <!-- 4. Note -->
         <div
           class="flex items-center gap-3 border-b border-gray-100 pb-3 dark:border-gray-800"
@@ -255,6 +221,14 @@
       </div>
     </div>
   </RecordSheetLayout>
+
+  <CategoryPickerSheet
+    v-model="showCategoryPicker"
+    :categories="activeCats"
+    :selectedId="form.categoryId"
+    :type="form.type"
+    @select="form.categoryId = $event"
+  />
 </template>
 
 <script setup lang="ts">
@@ -265,6 +239,7 @@ import { colorMap } from "../../utils/category";
 import CloseButton from "../CloseButton.vue";
 import CategoryIcon from "../CategoryIcon.vue";
 import CalculatorKeyboard from "../CalculatorKeyboard.vue";
+import CategoryPickerSheet from "../CategoryPickerSheet.vue";
 import RecordSheetLayout from "../RecordSheetLayout.vue";
 import BaseButton from "../BaseButton.vue";
 import { getLocalDateString } from "../../utils/date";
@@ -311,6 +286,7 @@ const defaultForm = () => ({
 
 const form = ref(defaultForm());
 const showKeyboard = ref(false);
+const showCategoryPicker = ref(false);
 const shouldSaveAsTemplate = ref(false);
 const submitting = ref(false);
 
@@ -416,6 +392,7 @@ watch(
       showKeyboard.value = true;
     } else {
       showKeyboard.value = false;
+      showCategoryPicker.value = false;
     }
   },
 );

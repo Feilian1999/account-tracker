@@ -3,7 +3,8 @@
     <transition :name="store.userProfile.animations ? 'fade' : ''">
       <div
         v-if="modelValue"
-      class="fixed inset-0 z-50 flex flex-col justify-end"
+      class="fixed inset-0 flex flex-col justify-end"
+      :class="zClass"
       @click.self="close"
     >
       <div
@@ -54,12 +55,15 @@ interface Props {
   maxHeight?: string;
   roundedClass?: string;
   contentClass?: string;
+  /** Raise this above another overlay when stacking sheets (e.g. z-60). */
+  zClass?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   maxHeight: "max-h-[90vh]",
   roundedClass: "rounded-t-3xl",
   contentClass: "px-4 py-6",
+  zClass: "z-50",
 });
 
 const emit = defineEmits(["update:modelValue", "close"]);

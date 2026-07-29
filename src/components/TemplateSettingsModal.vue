@@ -73,30 +73,6 @@
     :title="editingId ? $t('templates.editTemplate') : $t('templates.addTemplate')"
     @update:modelValue="onClose"
   >
-    <!-- Category Grid (backdrop) -->
-    <template #categories>
-      <div class="grid grid-cols-4 sm:grid-cols-5 gap-y-6 gap-x-2">
-        <button
-          v-for="cat in availableCategories"
-          :key="cat.id"
-          type="button"
-          @click="newForm.category = cat.id"
-          class="flex flex-col items-center gap-1.5 transition-all"
-          :class="newForm.category === cat.id ? 'scale-110 opacity-100' : 'opacity-80 hover:opacity-100'"
-        >
-          <div
-            class="flex h-12 w-12 items-center justify-center rounded-2xl text-[24px] transition-all"
-            :class="newForm.category === cat.id ? (newForm.type === 'expense' ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30') : 'bg-white/80 text-gray-700 dark:bg-gray-800/80 dark:text-gray-300'"
-          >
-            <CategoryIcon :name="cat.icon" />
-          </div>
-          <span class="text-xs font-bold text-center leading-tight whitespace-nowrap text-white drop-shadow-md">
-            {{ $te('categories.' + cat.id) ? $t('categories.' + cat.id) : cat.name }}
-          </span>
-        </button>
-      </div>
-    </template>
-
     <!-- Header Actions -->
     <template #header-actions>
       <div class="flex items-center gap-2">
@@ -130,19 +106,24 @@
         />
       </div>
 
-      <!-- Category display -->
-      <div class="flex items-center gap-3 border-b border-gray-100 dark:border-gray-800 pb-2">
+      <!-- Category — opens the picker -->
+      <button
+        type="button"
+        class="flex w-full items-center gap-3 border-b border-gray-100 dark:border-gray-800 pb-2 text-left transition-opacity active:opacity-60"
+        @click="showCategoryPicker = true"
+      >
         <span class="material-symbols-outlined text-gray-400 text-xl">category</span>
-        <label class="text-sm font-semibold text-gray-600 dark:text-gray-400 w-16 shrink-0">{{ $t("common.category") }}</label>
-        <div class="flex-1 flex items-center justify-end gap-2">
+        <span class="text-sm font-semibold text-gray-600 dark:text-gray-400 w-16 shrink-0">{{ $t("common.category") }}</span>
+        <span class="flex-1 flex items-center justify-end gap-2">
           <span class="text-sm font-bold" :class="newForm.type === 'expense' ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'">
             {{ selectedCategoryObj ? ($te('categories.' + selectedCategoryObj.id) ? $t('categories.' + selectedCategoryObj.id) : selectedCategoryObj.name) : $t('common.select') }}
           </span>
-          <div v-if="selectedCategoryObj" class="flex h-6 w-6 items-center justify-center rounded-[6px] text-white shadow-sm" :class="newForm.type === 'expense' ? 'bg-red-600' : 'bg-emerald-600'">
+          <span v-if="selectedCategoryObj" class="flex h-6 w-6 items-center justify-center rounded-[6px] text-white shadow-sm" :class="newForm.type === 'expense' ? 'bg-red-600' : 'bg-emerald-600'">
             <CategoryIcon :name="selectedCategoryObj.icon" class="text-[14px]" />
-          </div>
-        </div>
-      </div>
+          </span>
+          <span class="material-symbols-outlined text-gray-400 text-lg">chevron_right</span>
+        </span>
+      </button>
 
       <!-- Amount (optional) -->
       <div class="flex items-center gap-3 border-b border-gray-100 dark:border-gray-800 pb-2">
@@ -188,6 +169,14 @@
       </div>
     </div>
   </RecordSheetLayout>
+
+  <CategoryPickerSheet
+    v-model="showCategoryPicker"
+    :categories="availableCategories"
+    :selectedId="newForm.category"
+    :type="newForm.type"
+    @select="newForm.category = $event"
+  />
 </template>
 
 <script setup lang="ts">
@@ -198,6 +187,7 @@ import { colorMapFull as colorMap } from "../utils/category";
 import BaseButton from "./BaseButton.vue";
 import CategoryIcon from "./CategoryIcon.vue";
 import BaseBottomSheet from "./BaseBottomSheet.vue";
+import CategoryPickerSheet from "./CategoryPickerSheet.vue";
 import RecordSheetLayout from "./RecordSheetLayout.vue";
 import CloseButton from "./CloseButton.vue";
 
@@ -210,6 +200,7 @@ const { t } = useI18n();
 
 const isCreating = ref(false);
 const editingId = ref<string | null>(null);
+const showCategoryPicker = ref(false);
 
 const amountStr = ref("");
 const newForm = ref({
@@ -266,6 +257,7 @@ const resetCategory = () => {
 };
 
 const onClose = (val: boolean) => {
+  if (!val) showCategoryPicker.value = false;
   if (!val && isCreating.value) {
     // In the create/edit view, closing should return to the template list
     // rather than dismissing the whole modal and losing that context.

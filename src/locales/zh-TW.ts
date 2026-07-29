@@ -199,6 +199,10 @@ export default {
     restoreConfirm: "恢復備份",
     restoreSkip: "保留目前資料",
   },
+  categoryPicker: {
+    title: "選擇分類",
+    empty: "沒有可用的分類",
+  },
   templates: {
     title: "快速記帳範本",
     noTemplates: "尚未建立任何範本",

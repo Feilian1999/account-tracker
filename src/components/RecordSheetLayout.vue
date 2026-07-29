@@ -6,15 +6,15 @@
       class="fixed inset-0 z-50 flex flex-col justify-end"
       @click.self="close"
     >
-      <!-- 1. Background (Top Area): Category Selector Backdrop -->
+      <!-- 1. Background (Top Area): dim, tap to dismiss.
+           This used to host the category grid, but the sheet below can grow to
+           90vh and leave it a sliver, so the grid was hard to hit and a mis-tap
+           dismissed the sheet. Category selection moved to CategoryPickerSheet. -->
       <div
-        class="flex-1 w-full overflow-y-auto bg-black/40 backdrop-blur-sm p-4 pt-12 pb-6 custom-scrollbar"
-        @click.self="close"
-      >
-        <div class="mx-auto w-full max-w-md">
-          <slot name="categories" />
-        </div>
-      </div>
+        class="flex-1 w-full bg-black/40 backdrop-blur-sm"
+        aria-hidden="true"
+        @click="close"
+      ></div>
 
       <!-- 2. Foreground (Bottom Sheet): Form Panel -->
       <div

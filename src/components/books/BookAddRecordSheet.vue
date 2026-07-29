@@ -5,46 +5,6 @@
     :subtitle="$t('recordSheet.subtitle', { name: bookName })"
     @update:modelValue="emit('update:modelValue', $event)"
   >
-    <!-- Category Grid (backdrop area) -->
-    <template #categories>
-      <div class="grid grid-cols-4 gap-x-2 gap-y-6 sm:grid-cols-5">
-        <button
-          v-for="cat in activeCats"
-          :key="cat.id"
-          type="button"
-          @click="form.categoryId = cat.id"
-          class="group flex flex-col items-center gap-1.5 transition-all"
-          :class="
-            form.categoryId === cat.id
-              ? 'scale-110 opacity-100'
-              : 'opacity-80 hover:opacity-100'
-          "
-        >
-          <div
-            class="flex h-12 w-12 items-center justify-center rounded-2xl text-[24px] transition-all"
-            :class="
-              form.categoryId === cat.id
-                ? form.type === 'expense'
-                  ? 'bg-red-600 text-white shadow-lg shadow-red-600/30'
-                  : 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                : 'bg-white/80 text-gray-700 dark:bg-gray-800/80 dark:text-gray-300'
-            "
-          >
-            <CategoryIcon :name="cat.icon" />
-          </div>
-          <span
-            class="text-center text-xs leading-tight font-bold whitespace-nowrap text-white drop-shadow-md"
-          >
-            {{
-              $te(`categories.${cat.id}`)
-                ? $t(`categories.${cat.id}`)
-                : cat.name
-            }}
-          </span>
-        </button>
-      </div>
-    </template>
-
     <!-- Header Actions -->
     <template #header-actions>
       <div class="flex items-center gap-2">
@@ -158,6 +118,48 @@
         </div>
       </div>
 
+      <!-- 3. Category — opens the picker; kept outside the keyboard's v-show so
+           it stays reachable while the amount is being typed. -->
+      <button
+        type="button"
+        class="flex w-full items-center gap-3 border-b border-gray-100 pb-2 text-left transition-opacity active:opacity-60 dark:border-gray-800"
+        @click="showCategoryPicker = true"
+      >
+        <span class="material-symbols-outlined text-xl text-gray-400"
+          >category</span
+        >
+        <span
+          class="w-16 shrink-0 text-sm font-semibold text-gray-600 dark:text-gray-400"
+          >{{ $t("common.category") }}</span
+        >
+        <span class="flex flex-1 items-center justify-end gap-2 text-right">
+          <span
+            class="text-sm font-bold"
+            :class="
+              form.type === 'expense'
+                ? 'text-red-600 dark:text-red-400'
+                : 'text-emerald-600 dark:text-emerald-400'
+            "
+          >
+            {{
+              $te(`categories.${currentCategoryId}`)
+                ? $t(`categories.${currentCategoryId}`)
+                : currentCategoryObj?.name || $t("common.select")
+            }}
+          </span>
+          <span
+            v-if="currentCategoryId"
+            class="flex h-6 w-6 items-center justify-center rounded-[6px] text-white shadow-sm"
+            :class="form.type === 'expense' ? 'bg-red-600' : 'bg-emerald-600'"
+          >
+            <CategoryIcon :name="currentCategoryIcon" class="text-[14px]" />
+          </span>
+          <span class="material-symbols-outlined text-lg text-gray-400"
+            >chevron_right</span
+          >
+        </span>
+      </button>
+
       <CalculatorKeyboard
         v-if="showKeyboard"
         v-model="form.amountStr"
@@ -166,42 +168,6 @@
       />
 
       <div v-show="!showKeyboard" class="animate-fade-in space-y-4">
-        <!-- 3. Category Display -->
-        <div
-          class="flex items-center gap-3 border-b border-gray-100 pb-2 dark:border-gray-800"
-        >
-          <span class="material-symbols-outlined text-xl text-gray-400"
-            >category</span
-          >
-          <label
-            class="w-16 shrink-0 text-sm font-semibold text-gray-600 dark:text-gray-400"
-            >{{ $t("common.category") }}</label
-          >
-          <div class="flex flex-1 items-center justify-end gap-2 text-right">
-            <span
-              class="text-sm font-bold"
-              :class="
-                form.type === 'expense'
-                  ? 'text-red-600 dark:text-red-400'
-                  : 'text-emerald-600 dark:text-emerald-400'
-              "
-            >
-              {{
-                $te(`categories.${currentCategoryId}`)
-                  ? $t(`categories.${currentCategoryId}`)
-                  : currentCategoryObj?.name || $t("common.select")
-              }}
-            </span>
-            <div
-              v-if="currentCategoryId"
-              class="flex h-6 w-6 items-center justify-center rounded-[6px] text-white shadow-sm"
-              :class="form.type === 'expense' ? 'bg-red-600' : 'bg-emerald-600'"
-            >
-              <CategoryIcon :name="currentCategoryIcon" class="text-[14px]" />
-            </div>
-          </div>
-        </div>
-
         <!-- 4. Note -->
         <div
           class="flex items-center gap-3 border-b border-gray-100 pb-3 dark:border-gray-800"
@@ -447,6 +413,14 @@
       </div>
     </form>
   </RecordSheetLayout>
+
+  <CategoryPickerSheet
+    v-model="showCategoryPicker"
+    :categories="activeCats"
+    :selectedId="form.categoryId"
+    :type="form.type"
+    @select="form.categoryId = $event"
+  />
 </template>
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
@@ -459,6 +433,7 @@ import BaseButton from "../BaseButton.vue";
 import CloseButton from "../CloseButton.vue";
 import CategoryIcon from "../CategoryIcon.vue";
 import CalculatorKeyboard from "../CalculatorKeyboard.vue";
+import CategoryPickerSheet from "../CategoryPickerSheet.vue";
 import { getLocalDateString } from "../../utils/date";
 const props = defineProps<{
   modelValue: boolean;
@@ -495,6 +470,7 @@ const defaultForm = () => ({
 
 const form = ref(defaultForm());
 const showKeyboard = ref(false);
+const showCategoryPicker = ref(false);
 const shouldSaveAsTemplate = ref(false);
 
 const expenseCats = computed(() =>
@@ -688,6 +664,7 @@ watch(
       showKeyboard.value = true;
     } else {
       showKeyboard.value = false;
+      showCategoryPicker.value = false;
     }
   },
 );
@@ -756,72 +733,76 @@ const handleSubmit = async () => {
 
   submitting.value = true;
   try {
-  // Build custom amounts map for storage
-  let splitCustomAmountsOut: Record<string, number> | undefined;
-  if (isExpense && form.value.splitMode === "custom") {
-    splitCustomAmountsOut = {};
-    const unfilled = props.members.filter((m) => isUnfilled(m.id));
-    // Distribute the remaining total across unfilled members in cents, giving
-    // the leftover cents to the first members so the shares sum EXACTLY to the
-    // remaining amount (flooring each share left a permanent unsettleable gap).
-    const totalCents = Math.round(Math.max(0, remainingAmount.value) * 100);
-    const n = unfilled.length;
-    const base = n > 0 ? Math.floor(totalCents / n) : 0;
-    let extra = n > 0 ? totalCents - base * n : 0;
-    const unfilledSet = new Set(unfilled.map((m) => m.id));
-    for (const m of props.members) {
-      if (unfilledSet.has(m.id)) {
-        let cents = base;
-        if (extra > 0) {
-          cents += 1;
-          extra--;
+    // Build custom amounts map for storage
+    let splitCustomAmountsOut: Record<string, number> | undefined;
+    if (isExpense && form.value.splitMode === "custom") {
+      splitCustomAmountsOut = {};
+      const unfilled = props.members.filter((m) => isUnfilled(m.id));
+      // Distribute the remaining total across unfilled members in cents, giving
+      // the leftover cents to the first members so the shares sum EXACTLY to the
+      // remaining amount (flooring each share left a permanent unsettleable gap).
+      const totalCents = Math.round(Math.max(0, remainingAmount.value) * 100);
+      const n = unfilled.length;
+      const base = n > 0 ? Math.floor(totalCents / n) : 0;
+      let extra = n > 0 ? totalCents - base * n : 0;
+      const unfilledSet = new Set(unfilled.map((m) => m.id));
+      for (const m of props.members) {
+        if (unfilledSet.has(m.id)) {
+          let cents = base;
+          if (extra > 0) {
+            cents += 1;
+            extra--;
+          }
+          splitCustomAmountsOut[m.id] = cents / 100;
+        } else {
+          splitCustomAmountsOut[m.id] = Number(
+            form.value.splitCustomAmounts[m.id] || 0,
+          );
         }
-        splitCustomAmountsOut[m.id] = cents / 100;
-      } else {
-        splitCustomAmountsOut[m.id] = Number(form.value.splitCustomAmounts[m.id] || 0);
       }
     }
-  }
 
-  // In custom mode the members actually charged are those with a positive share,
-  // not the (possibly stale) equal-mode selection.
-  const splitAmongOut = !isExpense
-    ? []
-    : form.value.splitMode === "custom" && splitCustomAmountsOut
-      ? Object.keys(splitCustomAmountsOut).filter((id) => (splitCustomAmountsOut![id] ?? 0) > 0)
-      : form.value.splitAmongIds;
+    // In custom mode the members actually charged are those with a positive share,
+    // not the (possibly stale) equal-mode selection.
+    const splitAmongOut = !isExpense
+      ? []
+      : form.value.splitMode === "custom" && splitCustomAmountsOut
+        ? Object.keys(splitCustomAmountsOut).filter(
+            (id) => (splitCustomAmountsOut![id] ?? 0) > 0,
+          )
+        : form.value.splitAmongIds;
 
-  const data = {
-    type: form.value.type,
-    amount: amt,
-    category: currentCategoryObj.value?.name || form.value.categoryId,
-    date: form.value.date,
-    note: form.value.note,
-    paidById: isExpense ? form.value.paidById : "",
-    splitAmongIds: splitAmongOut,
-    splitCustomAmounts: splitCustomAmountsOut,
-  };
+    const data = {
+      type: form.value.type,
+      amount: amt,
+      category: currentCategoryObj.value?.name || form.value.categoryId,
+      date: form.value.date,
+      note: form.value.note,
+      paidById: isExpense ? form.value.paidById : "",
+      splitAmongIds: splitAmongOut,
+      splitCustomAmounts: splitCustomAmountsOut,
+    };
 
-  if (props.editRecordId) {
-    await store.updateRecord(props.editRecordId, data);
-  } else {
-    await store.addRecord(data);
+    if (props.editRecordId) {
+      await store.updateRecord(props.editRecordId, data);
+    } else {
+      await store.addRecord(data);
 
-    // Save as template if requested
-    if (shouldSaveAsTemplate.value) {
-      await store.addTemplate({
-        name:
-          form.value.note ||
-          currentCategoryObj.value?.name ||
-          form.value.categoryId,
-        type: form.value.type,
-        category: form.value.categoryId,
-        amount: amt,
-        note: form.value.note,
-      });
+      // Save as template if requested
+      if (shouldSaveAsTemplate.value) {
+        await store.addTemplate({
+          name:
+            form.value.note ||
+            currentCategoryObj.value?.name ||
+            form.value.categoryId,
+          type: form.value.type,
+          category: form.value.categoryId,
+          amount: amt,
+          note: form.value.note,
+        });
+      }
     }
-  }
-  close();
+    close();
   } finally {
     submitting.value = false;
   }

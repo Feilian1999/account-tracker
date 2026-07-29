@@ -199,6 +199,10 @@ export default {
     restoreConfirm: "バックアップを復元",
     restoreSkip: "現在のデータを保持",
   },
+  categoryPicker: {
+    title: "カテゴリを選択",
+    empty: "利用できるカテゴリがありません",
+  },
   templates: {
     title: "記帳テンプレート",
     noTemplates: "テンプレートはまだありません",
