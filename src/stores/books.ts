@@ -111,6 +111,16 @@ export function setupBookActions(
       if (book.isSynced !== false) {
         book.name = data.book.name;
         book.members = data.book.members;
+      } else {
+        // A pending local book edit must not be reverted — but still adopt cloud
+        // members we don't have yet, because the cloud records merged in below may
+        // be paidBy/split among them. A record referencing an unknown member id
+        // breaks settlement and hard-fails the whole UUID backup (records.paid_by_id
+        // is an FK to book_members). The shared-book PUT unions members anyway, so
+        // this matches the backend's merge semantics.
+        const localMemberIds = new Set(book.members.map((m) => m.id));
+        const unknown = data.book.members.filter((m) => !localMemberIds.has(m.id));
+        if (unknown.length) book.members = [...book.members, ...unknown];
       }
 
       // Smart merge for shared book records
