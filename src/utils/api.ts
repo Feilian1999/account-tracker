@@ -19,12 +19,17 @@ api.interceptors.response.use(
 );
 
 // UUID-based Sync (Anonymous/Manual)
+// A full backup/restore carries every record the user owns, so it gets a longer
+// budget than the 15s default: on a cold serverless start the request also pays
+// for the DB connect and the migration check before any data moves.
+const SYNC_TIMEOUT = 60000;
+
 export const pushSyncByUUID = async (uuid: string, data: Record<string, unknown>) => {
-  return api.post("/sync/push-uuid", { uuid, ...data });
+  return api.post("/sync/push-uuid", { uuid, ...data }, { timeout: SYNC_TIMEOUT });
 };
 
 export const pullSyncByUUID = async (uuid: string) => {
-  return api.get(`/sync/pull-uuid/${uuid}`);
+  return api.get(`/sync/pull-uuid/${uuid}`, { timeout: SYNC_TIMEOUT });
 };
 
 // Shared Books
