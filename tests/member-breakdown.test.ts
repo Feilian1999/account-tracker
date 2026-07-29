@@ -25,7 +25,11 @@ describe("calcMemberCategoryBreakdown", () => {
 
   it("calculates equal split correctly", () => {
     const records = [
-      makeRecord({ amount: 300, category: "food", splitAmongIds: ["m1", "m2", "m3"] }),
+      makeRecord({
+        amount: 300,
+        category: "food",
+        splitAmongIds: ["m1", "m2", "m3"],
+      }),
     ];
     const result = calcMemberCategoryBreakdown(records, ALL_MEMBERS, "m1");
     expect(result).toEqual([{ category: "food", amount: 100, count: 1 }]);
@@ -33,7 +37,11 @@ describe("calcMemberCategoryBreakdown", () => {
 
   it("expands 'all' splitAmongIds to all members", () => {
     const records = [
-      makeRecord({ amount: 300, category: "transport", splitAmongIds: ["all"] }),
+      makeRecord({
+        amount: 300,
+        category: "transport",
+        splitAmongIds: ["all"],
+      }),
     ];
     const result = calcMemberCategoryBreakdown(records, ALL_MEMBERS, "m1");
     expect(result).toEqual([{ category: "transport", amount: 100, count: 1 }]);
@@ -67,8 +75,18 @@ describe("calcMemberCategoryBreakdown", () => {
 
   it("groups multiple records of same category and accumulates count", () => {
     const records = [
-      makeRecord({ id: "r1", amount: 100, category: "food", splitAmongIds: ["m1", "m2"] }),
-      makeRecord({ id: "r2", amount: 200, category: "food", splitAmongIds: ["m1", "m2"] }),
+      makeRecord({
+        id: "r1",
+        amount: 100,
+        category: "food",
+        splitAmongIds: ["m1", "m2"],
+      }),
+      makeRecord({
+        id: "r2",
+        amount: 200,
+        category: "food",
+        splitAmongIds: ["m1", "m2"],
+      }),
     ];
     const result = calcMemberCategoryBreakdown(records, ALL_MEMBERS, "m1");
     expect(result).toEqual([{ category: "food", amount: 150, count: 2 }]);
@@ -76,17 +94,41 @@ describe("calcMemberCategoryBreakdown", () => {
 
   it("sorts results by amount descending", () => {
     const records = [
-      makeRecord({ id: "r1", amount: 100, category: "food", splitAmongIds: ["m1"] }),
-      makeRecord({ id: "r2", amount: 300, category: "transport", splitAmongIds: ["m1"] }),
-      makeRecord({ id: "r3", amount: 200, category: "hotel", splitAmongIds: ["m1"] }),
+      makeRecord({
+        id: "r1",
+        amount: 100,
+        category: "food",
+        splitAmongIds: ["m1"],
+      }),
+      makeRecord({
+        id: "r2",
+        amount: 300,
+        category: "transport",
+        splitAmongIds: ["m1"],
+      }),
+      makeRecord({
+        id: "r3",
+        amount: 200,
+        category: "hotel",
+        splitAmongIds: ["m1"],
+      }),
     ];
     const result = calcMemberCategoryBreakdown(records, ALL_MEMBERS, "m1");
-    expect(result.map((r) => r.category)).toEqual(["transport", "hotel", "food"]);
+    expect(result.map((r) => r.category)).toEqual([
+      "transport",
+      "hotel",
+      "food",
+    ]);
   });
 
   it("ignores income records", () => {
     const records = [
-      makeRecord({ type: "income", amount: 500, category: "food", splitAmongIds: ["m1"] }),
+      makeRecord({
+        type: "income",
+        amount: 500,
+        category: "food",
+        splitAmongIds: ["m1"],
+      }),
     ];
     expect(calcMemberCategoryBreakdown(records, ALL_MEMBERS, "m1")).toEqual([]);
   });

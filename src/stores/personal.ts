@@ -20,11 +20,15 @@ export function setupPersonalActions(
   >,
   currentBook: ComputedRef<{ id: string; name: string } | null>,
   pendingDeletePersonalRecordIds: Ref<string[]>,
-  save: () => Promise<void>
+  save: () => Promise<void>,
 ) {
   // ---- CRUD ----
   const addPersonalRecord = async (record: Omit<PersonalRecord, "id">) => {
-    personalRecords.value.unshift({ ...record, id: crypto.randomUUID(), isSynced: false });
+    personalRecords.value.unshift({
+      ...record,
+      id: crypto.randomUUID(),
+      isSynced: false,
+    });
     await save();
   };
 
@@ -34,7 +38,11 @@ export function setupPersonalActions(
   ) => {
     const idx = personalRecords.value.findIndex((r) => r.id === id);
     if (idx !== -1) {
-      personalRecords.value[idx] = { ...personalRecords.value[idx], ...record, isSynced: false };
+      personalRecords.value[idx] = {
+        ...personalRecords.value[idx],
+        ...record,
+        isSynced: false,
+      };
       await save();
     }
   };
@@ -70,7 +78,9 @@ export function setupPersonalActions(
     if (alreadyImported) {
       const toast = useToast();
       toast.warning(
-        i18n.global.t("personal.alreadyImported", { name: currentBook.value.name }),
+        i18n.global.t("personal.alreadyImported", {
+          name: currentBook.value.name,
+        }),
       );
       return;
     }
@@ -97,7 +107,9 @@ export function setupPersonalActions(
     personalBalance,
     importMyShareFromBook,
     importPersonalRecords: async (recordsToImport: PersonalRecord[]) => {
-      personalRecords.value.push(...recordsToImport.map((r) => ({ ...r, isSynced: false })));
+      personalRecords.value.push(
+        ...recordsToImport.map((r) => ({ ...r, isSynced: false })),
+      );
       await save();
     },
   };
