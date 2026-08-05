@@ -89,7 +89,7 @@ export default {
       title: "Join Shared Book",
       description: "Enter the share code from your friend to download and join the book.",
       codeLabel: "Share Code",
-      codePlaceholder: "e.g., ABCDEF",
+      codePlaceholder: "e.g., ABCDEFGH",
       joinBtn: "Join",
       notFound: "Share code not found. Please check and try again.",
       error: "An error occurred. Unable to join the shared book.",

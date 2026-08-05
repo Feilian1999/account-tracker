@@ -89,7 +89,7 @@ export default {
       title: "加入共用帳本",
       description: "請輸入朋友提供的共用代碼，即可下載並加入該帳本。",
       codeLabel: "共用代碼",
-      codePlaceholder: "例如: ABCDEF",
+      codePlaceholder: "例如: ABCDEFGH",
       joinBtn: "加入",
       notFound: "找不到該共用代碼，請確認是否輸入正確。",
       error: "發生錯誤，無法加入共用帳本。請稍後再試。",

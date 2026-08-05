@@ -89,7 +89,7 @@ export default {
       title: "共用帳簿に参加",
       description: "友人から提供された共用コードを入力して、帳簿をダウンロードして参加してください。",
       codeLabel: "共用コード",
-      codePlaceholder: "例: ABCDEF",
+      codePlaceholder: "例: ABCDEFGH",
       joinBtn: "参加",
       notFound: "共用コードが見つかりません。正しく入力されているか確認してください。",
       error: "エラーが発生しました。共用帳簿に参加できません。もう一度お試しください。",

@@ -30,7 +30,7 @@
                 required
                 class="input-field text-center font-mono text-xl tracking-widest uppercase"
                 :placeholder="$t('books.join.codePlaceholder')"
-                maxlength="6"
+                maxlength="8"
                 :disabled="loading"
                 autocomplete="off"
               />
@@ -88,7 +88,10 @@ const code = ref("");
 const loading = ref(false);
 const errorMsg = ref("");
 
-const isValid = computed(() => code.value.trim().length === 6);
+const isValid = computed(() => {
+  const len = code.value.trim().length;
+  return len >= 6 && len <= 8;
+});
 
 watch(
   () => props.modelValue,
