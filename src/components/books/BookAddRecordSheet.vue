@@ -332,8 +332,8 @@
                   <div class="relative flex-1">
                     <input
                       v-model="form.splitCustomAmounts[m.id]"
-                      type="number"
-                      min="0"
+                      type="text"
+                      @blur="evaluateCustomAmount(m.id)"
                       :placeholder="
                         isUnfilled(m.id) && hasAnyFilled && autoPerPerson >= 0
                           ? autoPerPerson.toLocaleString()
@@ -435,6 +435,7 @@ import CategoryIcon from "../CategoryIcon.vue";
 import CalculatorKeyboard from "../CalculatorKeyboard.vue";
 import CategoryPickerSheet from "../CategoryPickerSheet.vue";
 import { getLocalDateString } from "../../utils/date";
+import { parseAmountExpression } from "../../utils/amountExpression";
 const props = defineProps<{
   modelValue: boolean;
   bookName: string;
@@ -519,16 +520,37 @@ const isUnfilled = (id: string) => {
   return val === "";
 };
 
+const customAmountValue = (id: string) => {
+  const amount = parseAmountExpression(
+    form.value.splitCustomAmounts[id] ?? "",
+    Number(form.value.amountStr),
+  );
+  return amount !== null && amount >= 0 ? amount : null;
+};
+
+const evaluateCustomAmount = (id: string) => {
+  const amount = customAmountValue(id);
+  if (amount !== null) {
+    form.value.splitCustomAmounts[id] = String(Math.round(amount * 100) / 100);
+  }
+};
+
 const hasAnyFilled = computed(() =>
   props.members.some((m) => !isUnfilled(m.id)),
+);
+
+const hasInvalidCustomAmount = computed(() =>
+  props.members.some(
+    (m) => !isUnfilled(m.id) && customAmountValue(m.id) === null,
+  ),
 );
 
 // Sum of manually-filled member amounts
 const filledAllocated = computed(() => {
   return props.members.reduce((sum, m) => {
     if (isUnfilled(m.id)) return sum;
-    const v = Number(form.value.splitCustomAmounts[m.id] || 0);
-    return sum + (isNaN(v) ? 0 : v);
+    const amount = customAmountValue(m.id);
+    return sum + (amount ?? 0);
   }, 0);
 });
 
@@ -555,6 +577,7 @@ const isSplitValid = computed(() => {
   if (form.value.type !== "expense") return true;
   if (form.value.splitMode === "equal")
     return form.value.splitAmongIds.length > 0;
+  if (hasInvalidCustomAmount.value) return false;
   // custom mode: remaining must be >= 0 (whether there are unfilled or not)
   if (unfilledCount.value > 0) {
     return remainingAmount.value >= 0;
@@ -727,7 +750,7 @@ const handleSubmit = async () => {
   if (
     isExpense &&
     form.value.splitMode === "custom" &&
-    remainingAmount.value < 0
+    (hasInvalidCustomAmount.value || remainingAmount.value < 0)
   )
     return;
 
@@ -755,9 +778,7 @@ const handleSubmit = async () => {
           }
           splitCustomAmountsOut[m.id] = cents / 100;
         } else {
-          splitCustomAmountsOut[m.id] = Number(
-            form.value.splitCustomAmounts[m.id] || 0,
-          );
+          splitCustomAmountsOut[m.id] = customAmountValue(m.id) ?? 0;
         }
       }
     }
