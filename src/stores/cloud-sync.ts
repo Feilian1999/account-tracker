@@ -22,6 +22,7 @@ export function setupCloudSyncActions(
   pendingDeleteBookIds: Ref<string[]>,
   pendingDeleteCustomCategoryIds: Ref<string[]>,
   pendingDeleteTemplateIds: Ref<string[]>,
+  pendingDeleteMemberIds: Ref<string[]>,
   save: () => Promise<void>
 ) {
   const toast = useToast();
@@ -39,7 +40,8 @@ export function setupCloudSyncActions(
     pendingDeletePersonalRecordIds.value.length +
     pendingDeleteBookIds.value.length +
     pendingDeleteCustomCategoryIds.value.length +
-    pendingDeleteTemplateIds.value.length;
+    pendingDeleteTemplateIds.value.length +
+    pendingDeleteMemberIds.value.length;
 
   /** Mark all local data as synced and clear all tombstones. */
   const markAllSynced = async () => {
@@ -54,6 +56,7 @@ export function setupCloudSyncActions(
     pendingDeleteBookIds.value = [];
     pendingDeleteCustomCategoryIds.value = [];
     pendingDeleteTemplateIds.value = [];
+    pendingDeleteMemberIds.value = [];
 
     await Promise.all([
       saveToStorage(STORAGE_KEYS.PENDING_DELETE_RECORDS, []),
@@ -61,6 +64,7 @@ export function setupCloudSyncActions(
       saveToStorage(STORAGE_KEYS.PENDING_DELETE_BOOKS, []),
       saveToStorage(STORAGE_KEYS.PENDING_DELETE_CUSTOM_CATEGORIES, []),
       saveToStorage(STORAGE_KEYS.PENDING_DELETE_TEMPLATES, []),
+      saveToStorage(STORAGE_KEYS.PENDING_DELETE_MEMBERS, []),
     ]);
   };
 
@@ -108,6 +112,7 @@ export function setupCloudSyncActions(
         pendingDeleteBookIds.value = [];
         pendingDeleteCustomCategoryIds.value = [];
         pendingDeleteTemplateIds.value = [];
+        pendingDeleteMemberIds.value = [];
 
         customCategories.value = (response.data.categories || []).map((c: Category) => ({ ...c, isSynced: true }));
         books.value = (response.data.books || []).map((b: Book) => ({ ...b, isSynced: true }));

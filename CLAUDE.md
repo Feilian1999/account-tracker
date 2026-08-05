@@ -170,7 +170,10 @@ connect and migration check first.
 `POST /api/shared/share`, `GET|PUT /api/shared/{code}`, keyed by share code.
 Push is debounced **300ms per book** (a single shared timer previously let one
 book cancel another's pending sync). The backend **merges**: records unioned by
-id, ids in `deletedIds` removed, members unioned.
+id, ids in `deletedIds` removed, members unioned by id — except ids in
+`deletedMemberIds`, which are removed the same way. Member removal has no
+implicit path: the backend never drops a member from the union on its own, so
+`deletedMemberIds` must be sent explicitly (mirrors `deletedIds` for records).
 
 `pullSharedBook` invariants — both exist to prevent data loss, don't "simplify"
 them away:
@@ -180,7 +183,9 @@ them away:
    When there *is* a pending edit, cloud members the device doesn't have are
    still unioned in — the incoming records may be paid by them, and a record
    whose `paidById` matches no member breaks settlement and hard-fails the whole
-   UUID backup (`records.paid_by_id` is an FK).
+   UUID backup (`records.paid_by_id` is an FK). Either way, members tombstoned
+   in `pendingDeleteMemberIds` are filtered out first, so a pull can't resurrect
+   a deletion still in flight.
 2. Local unsynced records win over the cloud copy of the same id, and tombstoned
    ids are filtered out of the incoming set.
 
@@ -188,9 +193,10 @@ them away:
 
 `isSynced: false` marks locally-modified records; `pendingDelete*Ids[]` arrays
 (one per entity, persisted in IndexedDB) are tombstones added on every
-`delete*()`. Both are cleared by a successful `backupByUUID`; record tombstones
-for a shared book also clear after that book's successful shared push, which is
-what propagates deletions.
+`delete*()` — including `pendingDeleteMemberIds`, added by `updateBook` for any
+member dropped from the submitted name list. All are cleared by a successful
+`backupByUUID`; record and member tombstones for a shared book also clear after
+that book's successful shared push, which is what propagates the deletion.
 
 `deletedCategoryIds` is unrelated to tombstones — it hides *default* categories
 locally.

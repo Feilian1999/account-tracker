@@ -30,6 +30,7 @@ export function setupBookActions(
   userProfile: Ref<UserProfile>,
   pendingDeleteBookIds: Ref<string[]>,
   pendingDeleteRecordIds: Ref<string[]>,
+  pendingDeleteMemberIds: Ref<string[]>,
   save: () => Promise<void>
 ) {
   // ---- Computed ----
@@ -61,9 +62,15 @@ export function setupBookActions(
     // Deleted record ids to propagate to the shared space so the backend can
     // remove them from the merged payload (ids are globally unique, safe to send).
     const deletedIds = [...pendingDeleteRecordIds.value];
+    // Removed member ids to propagate, so the backend's union-by-id merge
+    // (which otherwise never drops a member) actually deletes them.
+    const deletedMemberIds = [...pendingDeleteMemberIds.value];
     // Signature of the book fields we push, to detect in-flight edits.
     const bookSig = book.name + "|" + book.members.map((m) => m.id).join(",");
-    const payload = { book, records: pushedRecords, deletedIds } as SharedBookPayload & { deletedIds: string[] };
+    const payload = { book, records: pushedRecords, deletedIds, deletedMemberIds } as SharedBookPayload & {
+      deletedIds: string[];
+      deletedMemberIds: string[];
+    };
 
     try {
       await updateSharedBook(book.shareCode, payload);
@@ -82,6 +89,10 @@ export function setupBookActions(
       if (deletedIds.length) {
         const sent = new Set(deletedIds);
         pendingDeleteRecordIds.value = pendingDeleteRecordIds.value.filter((id) => !sent.has(id));
+      }
+      if (deletedMemberIds.length) {
+        const sentM = new Set(deletedMemberIds);
+        pendingDeleteMemberIds.value = pendingDeleteMemberIds.value.filter((id) => !sentM.has(id));
       }
 
       await save();
@@ -106,11 +117,16 @@ export function setupBookActions(
         return;
       }
 
+      // Never resurrect a member this device has deleted but not yet finished
+      // pushing (the backend union-merges members and won't drop it on its own
+      // until our deletedMemberIds reaches it).
+      const pendingDeleteMemberSet = new Set(pendingDeleteMemberIds.value);
+
       // Only adopt cloud book fields when we have no pending local book edit,
       // otherwise a pull would revert a rename / member change awaiting push.
       if (book.isSynced !== false) {
         book.name = data.book.name;
-        book.members = data.book.members;
+        book.members = data.book.members.filter((m) => !pendingDeleteMemberSet.has(m.id));
       } else {
         // A pending local book edit must not be reverted — but still adopt cloud
         // members we don't have yet, because the cloud records merged in below may
@@ -119,7 +135,9 @@ export function setupBookActions(
         // is an FK to book_members). The shared-book PUT unions members anyway, so
         // this matches the backend's merge semantics.
         const localMemberIds = new Set(book.members.map((m) => m.id));
-        const unknown = data.book.members.filter((m) => !localMemberIds.has(m.id));
+        const unknown = data.book.members.filter(
+          (m) => !localMemberIds.has(m.id) && !pendingDeleteMemberSet.has(m.id)
+        );
         if (unknown.length) book.members = [...book.members, ...unknown];
       }
 
@@ -313,6 +331,14 @@ export function setupBookActions(
 
     const newMemberIds = newMembers.map((m) => m.id);
     const fallbackId = newMembers[0]?.id || "";
+
+    // Tombstone genuinely removed members so a pull/merge can't resurrect them —
+    // the backend's shared-book merge unions members by id and never drops one
+    // on its own; see pullSharedBook and _syncSharedBookImmediate.
+    const removedMemberIds = existingMembers
+      .filter((m) => !newMemberIds.includes(m.id))
+      .map((m) => m.id);
+    if (removedMemberIds.length) pendingDeleteMemberIds.value.push(...removedMemberIds);
 
     // Adjust only records that still reference a genuinely removed member.
     records.value.filter((r) => r.bookId === bookId).forEach((r) => {

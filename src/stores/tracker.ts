@@ -40,6 +40,7 @@ export const useTrackerStore = defineStore("tracker", () => {
   const pendingDeleteBookIds = ref<string[]>([]);
   const pendingDeleteCustomCategoryIds = ref<string[]>([]);
   const pendingDeleteTemplateIds = ref<string[]>([]);
+  const pendingDeleteMemberIds = ref<string[]>([]);
 
   // =====================
   //  Persistence
@@ -73,6 +74,7 @@ export const useTrackerStore = defineStore("tracker", () => {
         loadedPendingDeleteBooks,
         loadedPendingDeleteCustomCategories,
         loadedPendingDeleteTemplates,
+        loadedPendingDeleteMembers,
       ] = await Promise.all([
         loadFromStorage(STORAGE_KEYS.BOOKS, []),
         loadFromStorage(STORAGE_KEYS.RECORDS, []),
@@ -87,6 +89,7 @@ export const useTrackerStore = defineStore("tracker", () => {
         loadFromStorage(STORAGE_KEYS.PENDING_DELETE_BOOKS, []),
         loadFromStorage(STORAGE_KEYS.PENDING_DELETE_CUSTOM_CATEGORIES, []),
         loadFromStorage(STORAGE_KEYS.PENDING_DELETE_TEMPLATES, []),
+        loadFromStorage(STORAGE_KEYS.PENDING_DELETE_MEMBERS, []),
       ]);
 
       books.value = loadedBooks;
@@ -125,6 +128,7 @@ export const useTrackerStore = defineStore("tracker", () => {
       pendingDeleteBookIds.value = loadedPendingDeleteBooks || [];
       pendingDeleteCustomCategoryIds.value = loadedPendingDeleteCustomCategories || [];
       pendingDeleteTemplateIds.value = loadedPendingDeleteTemplates || [];
+      pendingDeleteMemberIds.value = loadedPendingDeleteMembers || [];
 
       isInitialized.value = true;
 
@@ -153,6 +157,7 @@ export const useTrackerStore = defineStore("tracker", () => {
       saveToStorage(STORAGE_KEYS.PENDING_DELETE_BOOKS, pendingDeleteBookIds.value),
       saveToStorage(STORAGE_KEYS.PENDING_DELETE_CUSTOM_CATEGORIES, pendingDeleteCustomCategoryIds.value),
       saveToStorage(STORAGE_KEYS.PENDING_DELETE_TEMPLATES, pendingDeleteTemplateIds.value),
+      saveToStorage(STORAGE_KEYS.PENDING_DELETE_MEMBERS, pendingDeleteMemberIds.value),
     ]);
   };
 
@@ -161,7 +166,7 @@ export const useTrackerStore = defineStore("tracker", () => {
   // =====================
   const userActions = setupUserActions(userProfile, save);
   const categoryActions = setupCategoryActions(customCategories, deletedCategoryIds, pendingDeleteCustomCategoryIds);
-  const bookActions = setupBookActions(books, records, currentBookId, userProfile, pendingDeleteBookIds, pendingDeleteRecordIds, save);
+  const bookActions = setupBookActions(books, records, currentBookId, userProfile, pendingDeleteBookIds, pendingDeleteRecordIds, pendingDeleteMemberIds, save);
   const personalActions = setupPersonalActions(personalRecords, bookActions.memberStats, bookActions.currentBook, pendingDeletePersonalRecordIds, save);
   const templateActions = setupTemplateActions(recordTemplates, pendingDeleteTemplateIds, save);
   const cloudSyncActions = setupCloudSyncActions(
@@ -176,6 +181,7 @@ export const useTrackerStore = defineStore("tracker", () => {
     pendingDeleteBookIds,
     pendingDeleteCustomCategoryIds,
     pendingDeleteTemplateIds,
+    pendingDeleteMemberIds,
     save,
   );
 

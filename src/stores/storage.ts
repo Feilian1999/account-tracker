@@ -89,4 +89,5 @@ export const STORAGE_KEYS = {
   PENDING_DELETE_BOOKS: "tracker_pending_delete_books",
   PENDING_DELETE_CUSTOM_CATEGORIES: "tracker_pending_delete_custom_categories",
   PENDING_DELETE_TEMPLATES: "tracker_pending_delete_templates",
+  PENDING_DELETE_MEMBERS: "tracker_pending_delete_members",
 } as const;
