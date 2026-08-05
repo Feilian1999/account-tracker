@@ -21,6 +21,16 @@ export default {
     statistics: "統計",
     profile: "マイページ",
   },
+  shortcuts: {
+    title: "キーボードショートカット",
+    primary: "メイン操作 / 保存",
+    close: "現在のメニューまたは画面を閉じる",
+    home: "個人の記録",
+    books: "共有帳簿",
+    statistics: "統計",
+    profile: "プロフィール",
+    help: "キーボードショートカットを表示",
+  },
   landing: {
     title: "Account Tracker",
     subtitle: "個人財務とグループ割り勘の最高のアシスタント",

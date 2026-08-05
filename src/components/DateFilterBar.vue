@@ -1,11 +1,20 @@
 <template>
   <div>
-    <div class="flex gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+    <div
+      class="flex gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800"
+      role="tablist"
+      aria-label="Date range"
+    >
       <button
         v-for="m in MODES"
         :key="m"
         type="button"
         @click="setMode(m)"
+        @keydown.left.prevent="moveMode(m, -1, $event)"
+        @keydown.right.prevent="moveMode(m, 1, $event)"
+        role="tab"
+        :aria-selected="mode === m"
+        :tabindex="mode === m ? 0 : -1"
         :class="[
           'flex-1 rounded-lg py-1.5 text-xs font-semibold transition-colors',
           mode === m
@@ -137,5 +146,16 @@ function setMode(newMode: FilterMode) {
       month.value = months[months.length - 1];
     }
   }
+}
+
+function moveMode(current: FilterMode, offset: number, event: KeyboardEvent) {
+  const index = MODES.value.indexOf(current);
+  const next =
+    MODES.value[(index + offset + MODES.value.length) % MODES.value.length];
+  setMode(next);
+  const tabs = (
+    event.currentTarget as HTMLElement
+  ).parentElement?.querySelectorAll<HTMLElement>('[role="tab"]');
+  tabs?.[MODES.value.indexOf(next)].focus();
 }
 </script>

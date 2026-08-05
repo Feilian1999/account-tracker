@@ -21,6 +21,16 @@ export default {
     statistics: "統計",
     profile: "我",
   },
+  shortcuts: {
+    title: "鍵盤快速鍵",
+    primary: "主要操作 / 儲存",
+    close: "關閉目前的選單或視窗",
+    home: "個人明細",
+    books: "共享帳本",
+    statistics: "統計",
+    profile: "個人設定",
+    help: "顯示鍵盤快速鍵",
+  },
   landing: {
     title: "Account Tracker",
     subtitle: "個人理財與團體分帳的最佳助手",

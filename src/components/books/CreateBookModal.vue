@@ -58,6 +58,7 @@ import { useTrackerStore } from "../../stores/tracker";
 import BaseButton from "../BaseButton.vue";
 import CloseButton from "../CloseButton.vue";
 import { useEscapeKey } from "../../composables/useEscapeKey";
+import { usePrimaryAction } from "../../composables/usePrimaryAction";
 
 const props = defineProps<{
   modelValue: boolean;
@@ -104,6 +105,7 @@ const close = () => {
 };
 
 useEscapeKey(toRef(props, "modelValue"), close);
+usePrimaryAction(toRef(props, "modelValue"), () => handleCreate(), 1);
 
 const handleCreate = async () => {
   if (!form.value.name.trim() || submitting.value) return;

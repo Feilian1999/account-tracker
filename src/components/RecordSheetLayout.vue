@@ -20,6 +20,9 @@
       <div
         class="animate-slide-up relative w-full bg-white pb-safe transition-colors dark:bg-gray-900 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.2)]"
         :style="{ maxHeight: maxHeight }"
+        role="dialog"
+        aria-modal="true"
+        :aria-labelledby="titleId"
       >
         <div class="mx-auto w-full max-w-md flex flex-col h-full px-6 py-5">
           <!-- Handle -->
@@ -28,7 +31,7 @@
           <!-- Header -->
           <div class="mb-5 flex items-center justify-between gap-4 shrink-0 overflow-hidden">
             <div class="min-w-0 flex-1">
-              <h2 class="text-lg font-bold truncate text-gray-800 dark:text-gray-200">{{ title }}</h2>
+              <h2 :id="titleId" class="text-lg font-bold truncate text-gray-800 dark:text-gray-200">{{ title }}</h2>
               <p v-if="subtitle" class="text-[11px] font-medium truncate text-gray-500 mt-0.5">{{ subtitle }}</p>
             </div>
             <slot name="header-actions" />
@@ -46,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { toRef } from "vue";
+import { toRef, useId } from "vue";
 import { useTrackerStore } from "../stores/tracker";
 import { useEscapeKey } from "../composables/useEscapeKey";
 
@@ -66,6 +69,7 @@ const emit = defineEmits<{
 }>();
 
 const store = useTrackerStore();
+const titleId = `${useId()}-title`;
 
 const close = () => emit("update:modelValue", false);
 

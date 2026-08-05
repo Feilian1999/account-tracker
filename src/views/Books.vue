@@ -58,6 +58,8 @@ import JoinBookModal from "../components/books/JoinBookModal.vue";
 import ShareBookModal from "../components/books/ShareBookModal.vue";
 import { useToast } from "../composables/useToast";
 import { useTrackerStore } from "../stores/tracker";
+import { useEscapeKey } from "../composables/useEscapeKey";
+import { usePrimaryAction } from "../composables/usePrimaryAction";
 
 const store = useTrackerStore();
 const toast = useToast();
@@ -72,10 +74,19 @@ const showShareModal = ref(false);
 const currentShareCode = ref("");
 const editRecordId = ref<string | undefined>(undefined);
 const editBookId = ref<string | undefined>(undefined);
+const pageActive = ref(true);
 
 const currentBook = computed(
   () => store.books.find((book) => book.id === selectedBookId.value) ?? null,
 );
+
+usePrimaryAction(pageActive, () => {
+  if (selectedBookId.value) openNewRecord();
+  else openNewBook();
+});
+useEscapeKey(computed(() => selectedBookId.value !== null), () => {
+  selectedBookId.value = null;
+});
 
 const openBook = async (id: string) => {
   selectedBookId.value = id;

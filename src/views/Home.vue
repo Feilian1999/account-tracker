@@ -279,6 +279,8 @@ import ImportFromBookSheet from "../components/home/ImportFromBookSheet.vue";
 import { useTrackerStore } from "../stores/tracker";
 import { colorMap } from "../utils/category";
 import { getLocalDateString, getLocalYearMonthString } from "../utils/date";
+import { useEscapeKey } from "../composables/useEscapeKey";
+import { usePrimaryAction } from "../composables/usePrimaryAction";
 
 const store = useTrackerStore();
 const showForm = ref(false);
@@ -293,6 +295,14 @@ const showFilterMenu = ref(false);
 const filterMenuId = "home-filter-menu";
 const importMenuId = "home-import-menu";
 const showMonthSelector = computed(() => filterMode.value !== "all");
+const pageActive = ref(true);
+const menuOpen = computed(() => showFilterMenu.value || showImportMenu.value);
+
+usePrimaryAction(pageActive, () => openNewRecord());
+useEscapeKey(menuOpen, () => {
+  showFilterMenu.value = false;
+  showImportMenu.value = false;
+});
 
 const setFilterMode = (mode: "all" | "year" | "month") => {
   filterMode.value = mode;
@@ -336,6 +346,8 @@ const filteredBalance = computed(
 );
 
 const openNewRecord = () => {
+  showFilterMenu.value = false;
+  showImportMenu.value = false;
   editRecordId.value = undefined;
   useTemplateId.value = undefined;
   showForm.value = true;

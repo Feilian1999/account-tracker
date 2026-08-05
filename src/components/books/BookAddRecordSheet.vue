@@ -107,10 +107,12 @@
         <div class="flex flex-1 items-center justify-end gap-1">
           <span class="text-sm font-semibold text-gray-400">NT$</span>
           <input
+            ref="amountInput"
             v-model="form.amountStr"
             type="text"
             inputmode="none"
             @focus="showKeyboard = true"
+            @keydown.enter.prevent="finishAmountEntry"
             required
             placeholder="0"
             class="w-full bg-transparent text-right text-xl font-bold text-gray-800 caret-violet-500 outline-none dark:text-gray-100"
@@ -424,7 +426,7 @@
 </template>
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, toRef, watch } from "vue";
 import { useTrackerStore } from "../../stores/tracker";
 import type { Member } from "../../stores/tracker";
 import { colorMap } from "../../utils/category";
@@ -436,6 +438,7 @@ import CalculatorKeyboard from "../CalculatorKeyboard.vue";
 import CategoryPickerSheet from "../CategoryPickerSheet.vue";
 import { getLocalDateString } from "../../utils/date";
 import { parseAmountExpression } from "../../utils/amountExpression";
+import { usePrimaryAction } from "../../composables/usePrimaryAction";
 const props = defineProps<{
   modelValue: boolean;
   bookName: string;
@@ -507,6 +510,11 @@ const evaluateAmount = () => {
       // ignore
     }
   }
+};
+
+const finishAmountEntry = () => {
+  evaluateAmount();
+  showKeyboard.value = false;
 };
 
 const isValidAmount = computed(() => {
@@ -734,6 +742,16 @@ const toggleAll = () => {
 const close = () => emit("update:modelValue", false);
 
 const submitting = ref(false);
+const amountInput = ref<HTMLInputElement>();
+
+usePrimaryAction(toRef(props, "modelValue"), () => handleSubmit(), 1);
+
+watch(
+  () => props.modelValue,
+  (open) => {
+    if (open) nextTick(() => amountInput.value?.focus());
+  },
+);
 
 const handleSubmit = async () => {
   if (submitting.value) return;

@@ -63,6 +63,8 @@
                 role="tab"
                 :aria-selected="categoryTab === 'expense'"
                 :tabindex="categoryTab === 'expense' ? 0 : -1"
+                @keydown.left.prevent="selectCategoryTab('income', $event)"
+                @keydown.right.prevent="selectCategoryTab('income', $event)"
                 :class="[
                   'rounded-lg px-3 py-1 text-xs font-semibold transition-colors',
                   categoryTab === 'expense'
@@ -78,6 +80,8 @@
                 role="tab"
                 :aria-selected="categoryTab === 'income'"
                 :tabindex="categoryTab === 'income' ? 0 : -1"
+                @keydown.left.prevent="selectCategoryTab('expense', $event)"
+                @keydown.right.prevent="selectCategoryTab('expense', $event)"
                 :class="[
                   'rounded-lg px-3 py-1 text-xs font-semibold transition-colors',
                   categoryTab === 'income'
@@ -178,6 +182,14 @@ const filteredBalance = computed(
 );
 
 const categoryTab = ref<"expense" | "income">("expense");
+
+const selectCategoryTab = (tab: "expense" | "income", event: KeyboardEvent) => {
+  categoryTab.value = tab;
+  const tabs = (
+    event.currentTarget as HTMLElement
+  ).parentElement?.querySelectorAll<HTMLElement>('[role="tab"]');
+  tabs?.[tab === "expense" ? 0 : 1].focus();
+};
 
 const categoryMap = computed(
   () =>

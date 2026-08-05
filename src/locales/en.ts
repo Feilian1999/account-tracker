@@ -21,6 +21,16 @@ export default {
     statistics: "Stats",
     profile: "Profile",
   },
+  shortcuts: {
+    title: "Keyboard shortcuts",
+    primary: "Primary action / Save",
+    close: "Close the current menu or sheet",
+    home: "Personal records",
+    books: "Shared books",
+    statistics: "Statistics",
+    profile: "Profile",
+    help: "Show keyboard shortcuts",
+  },
   landing: {
     title: "Account Tracker",
     subtitle: "Your best assistant for personal finance and group expenses",

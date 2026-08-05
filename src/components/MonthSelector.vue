@@ -5,6 +5,8 @@
       @touchstart="onTouchStart"
       @touchmove="onTouchMove"
       @touchend="onTouchEnd"
+      @keydown.left.prevent="prevMonth"
+      @keydown.right.prevent="nextMonth"
     >
       <button
         type="button"
