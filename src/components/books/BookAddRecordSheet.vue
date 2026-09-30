@@ -840,7 +840,11 @@ usePrimaryAction(toRef(props, "modelValue"), () => handleSubmit(), 1);
 watch(
   () => props.modelValue,
   (open) => {
-    if (open) nextTick(() => amountInput.value?.focus());
+    if (open) {
+      nextTick(() => {
+        if (!isValidAmount.value) amountInput.value?.focus();
+      });
+    }
   },
 );
 
