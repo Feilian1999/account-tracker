@@ -349,9 +349,16 @@ locally.
   `zClass`.
 - **Stacking**: a sheet opened from another sheet must be raised — pass
   `zClass="z-60"` (base sheets are `z-50`). Tailwind v4 generates any `z-<n>`.
-- **Escape**: `useEscapeKey(isActiveRef, close)`. All dialogs share one listener
-  and a stack so a press closes only the top-most one. Register, never add your
-  own `keydown` listener.
+- **Escape and Back**: `useEscapeKey(isActiveRef, close)`. All layers share one
+  listener, and a press closes only the **most recently opened** active one —
+  ordered by activation time, because a parent registers after its children
+  (Books.vue's "back to list" layer must not beat a sheet opened on top of it).
+  The browser/OS back button uses the same stack: a `popstate` flag in
+  `router/index.ts` (registered before `createRouter` on purpose) makes the
+  guard call `closeTopOverlay()` and cancel the navigation, so Back closes a
+  sheet instead of leaving the page. With no history entry to go back to (app
+  opened directly on that page) the OS still handles Back itself. Register,
+  never add your own `keydown`/`popstate` listener.
 - **Keyboard shortcuts** live in `App.vue` (one window listener): Ctrl/⌘+Enter
   runs the primary action, Alt+Shift+1–4 switch tabs, Ctrl/⌘+/ toggles the help
   sheet. They are ignored during IME composition (`isComposing` / keyCode 229)

@@ -8,6 +8,19 @@ import Statistics from "../views/Statistics.vue";
 import PrivacyPolicy from "../views/PrivacyPolicy.vue";
 import TermsOfService from "../views/TermsOfService.vue";
 import Landing from "../views/Landing.vue";
+import { closeTopOverlay } from "../composables/useEscapeKey";
+
+// Set by the browser/OS back (or forward) button — router.push never fires
+// popstate. Registered BEFORE createRouter so it runs before the router's own
+// popstate listener, whose guard chain can otherwise finish (in the microtask
+// checkpoint after that listener) before this flag is set.
+let historyNavigation = false;
+window.addEventListener("popstate", () => {
+  historyNavigation = true;
+  // Cleared after the navigation's guards (all microtasks) have seen it, and
+  // for the router's own history.go() that undoes a cancelled back navigation.
+  setTimeout(() => (historyNavigation = false));
+});
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -24,6 +37,13 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to) => {
+  // Back with a sheet/modal open closes it instead of leaving the page (the
+  // router then restores the URL it had already popped).
+  if (historyNavigation) {
+    historyNavigation = false;
+    if (closeTopOverlay()) return false;
+  }
+
   const store = useTrackerStore();
 
   // Ensure store is loaded from IndexedDB before evaluating auth rules
