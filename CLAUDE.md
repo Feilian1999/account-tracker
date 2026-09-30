@@ -485,7 +485,10 @@ The backend has its own `CLAUDE.md`; read it before changing a payload shape.
   `UUID`; a non-UUID id fails the whole backup push.
 - The default categories are the exception: their ids are `"e1"`…`"i4"` and they
   live only in `constants.ts`. They are never pushed to the backend.
-- Guard double submits: the sheets use a `submitting` flag.
+- Guard double submits: the sheets use a `submitting` flag. Actions that create
+  something remotely also dedupe in the store — `publishBook` shares one
+  in-flight request per book, because a second share would create a second
+  shared space and swap the code under the user.
 - `README.md` is stale (mentions Google login, 6-digit codes, two locales).
   Trust this file and the code over it.
 - `.npmrc` sets `legacy-peer-deps=true` for `@vercel/analytics`'s vue-router@4

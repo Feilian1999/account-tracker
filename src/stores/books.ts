@@ -180,28 +180,41 @@ export function setupBookActions(
     }
   };
 
-  const publishBook = async (bookId: string) => {
-    const book = books.value.find((b) => b.id === bookId);
-    if (!book) return;
+  // One share request per book at a time: a second tap while the first is in
+  // flight (a cold start takes seconds) used to create a second shared space,
+  // swap the shown code, and orphan the first one.
+  const publishing = new Map<string, Promise<string | undefined>>();
 
-    // Already shared → just sync and return existing code
-    if (book.shareCode) {
-      syncSharedBook(bookId);
-      return book.shareCode;
-    }
+  const publishBook = (bookId: string): Promise<string | undefined> => {
+    const inflight = publishing.get(bookId);
+    if (inflight) return inflight;
 
-    const bookRecords = records.value.filter((r) => r.bookId === bookId);
-    const payload: SharedBookPayload = { book, records: bookRecords };
+    const run = (async () => {
+      const book = books.value.find((b) => b.id === bookId);
+      if (!book) return undefined;
 
-    try {
-      const res = await shareBookToCloud(payload);
-      book.shareCode = res.data.code;
-      await save();
-      return book.shareCode;
-    } catch (e) {
-      console.error("[sync] Failed to publish book:", e);
-      throw e;
-    }
+      // Already shared → just sync and return existing code
+      if (book.shareCode) {
+        syncSharedBook(bookId);
+        return book.shareCode;
+      }
+
+      const bookRecords = records.value.filter((r) => r.bookId === bookId);
+      const payload: SharedBookPayload = { book, records: bookRecords };
+
+      try {
+        const res = await shareBookToCloud(payload);
+        book.shareCode = res.data.code;
+        await save();
+        return book.shareCode;
+      } catch (e) {
+        console.error("[sync] Failed to publish book:", e);
+        throw e;
+      }
+    })().finally(() => publishing.delete(bookId));
+
+    publishing.set(bookId, run);
+    return run;
   };
 
   const joinBookByCode = async (code: string) => {

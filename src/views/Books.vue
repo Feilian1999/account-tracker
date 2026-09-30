@@ -14,6 +14,7 @@
       @settle="showSettlementSheet = true"
       @add-record="openNewRecord"
       @edit-record="openEditRecord"
+      :sharing="sharing"
       @share="handleShareBook"
     />
 
@@ -116,8 +117,10 @@ const openEditRecord = (id: string) => {
   showAddRecordSheet.value = true;
 };
 
+const sharing = ref(false);
 const handleShareBook = async () => {
-  if (!selectedBookId.value) return;
+  if (!selectedBookId.value || sharing.value) return;
+  sharing.value = true;
   try {
     const code = await store.publishBook(selectedBookId.value);
     if (code) {
@@ -126,6 +129,8 @@ const handleShareBook = async () => {
     }
   } catch {
     toast.error(t("books.share.failed"));
+  } finally {
+    sharing.value = false;
   }
 };
 </script>

@@ -37,11 +37,18 @@
         <div class="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
           <button
             type="button"
-            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20 text-white shadow-sm transition-colors hover:bg-white/30"
+            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20 text-white shadow-sm transition-colors hover:bg-white/30 disabled:cursor-wait disabled:opacity-70"
             :aria-label="$t('books.share.title')"
+            :aria-busy="sharing"
+            :disabled="sharing"
             @click="$emit('share')"
           >
-            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">cloud_upload</span>
+            <span
+              class="material-symbols-outlined text-[18px]"
+              :class="{ 'animate-spin': sharing }"
+              aria-hidden="true"
+              >{{ sharing ? "progress_activity" : "cloud_upload" }}</span
+            >
           </button>
           <button
             type="button"
@@ -225,6 +232,8 @@ import { formatDate, getCategoryBg, getCategoryIcon } from "../../utils/category
 
 const props = defineProps<{
   bookId: string;
+  /** A share request for this book is in flight. */
+  sharing?: boolean;
 }>();
 
 const emit = defineEmits<{
