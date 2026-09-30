@@ -5,6 +5,7 @@ import { shareBookToCloud, fetchSharedBook, updateSharedBook } from "../utils/ap
 import { calcMemberCategoryBreakdown, type MemberCategoryBreakdown } from "../utils/memberBreakdown";
 import { calcMemberStats, calcSettlements } from "../utils/settlement";
 import { currencyOf, decimalsOf } from "../utils/currency";
+import { isSelf, type MemberDraft } from "../utils/member";
 import { i18n } from "../i18n";
 
 // ---- Debounce helper (keyed by the first argument) ----
@@ -217,11 +218,32 @@ export function setupBookActions(
     return run;
   };
 
-  const joinBookByCode = async (code: string) => {
-    try {
-      const res = await fetchSharedBook(code);
-      const data = res.data as SharedBookPayload;
+  /** Fetches a shared book by code without joining it (for the "who are you?" step). */
+  const previewSharedBook = async (code: string): Promise<SharedBookPayload> => {
+    const res = await fetchSharedBook(code);
+    const data = res.data as SharedBookPayload;
+    if (!data || !data.book || !Array.isArray(data.book.members) || !Array.isArray(data.records)) {
+      throw new Error("Malformed shared book payload");
+    }
+    return data;
+  };
 
+  /** The member of `book` already linked to this device's user, if any. */
+  const findSelfMember = (book: Pick<Book, "members">) =>
+    book.members.find((m) => isSelf(m, userProfile.value));
+
+  /**
+   * Joins a previewed shared book. Joining never adds a member: the joiner
+   * either claims an existing, unlinked member (`claimMemberId`) — linking it
+   * to their public memberId — or joins without one (null) and can still view
+   * and record for others. Already-linked joiners keep their member.
+   */
+  const joinSharedBook = async (
+    code: string,
+    data: SharedBookPayload,
+    claimMemberId: string | null
+  ) => {
+    try {
       const existing = books.value.find((b) => b.id === data.book.id);
       if (existing) {
         if (!confirm(i18n.global.t("books.joinOverwriteConfirm", { name: existing.name }))) return;
@@ -229,37 +251,26 @@ export function setupBookActions(
         books.value = books.value.filter((b) => b.id !== existing.id);
       }
 
-      const newBook: Book = { ...data.book, shareCode: code, isSynced: true };
-
-      // Auto-enroll the joining user as a member, using the public memberId.
-      const myId = userProfile.value.memberId;
-      const legacyId = userProfile.value.id; // pre-decoupling, membership used the backup id
-      const myName = userProfile.value.name || "我";
-
-      // Check if I am already in the member list (by new memberId or legacy id).
-      const existingMemberByUserId = newBook.members.find(
-        (m: Member) => m.userId === myId || (!!legacyId && m.userId === legacyId)
-      );
+      const newBook: Book = {
+        ...data.book,
+        members: data.book.members.map((m) => ({ ...m })),
+        shareCode: code,
+        isSynced: true,
+      };
 
       let shouldSyncBack = false;
-      if (!existingMemberByUserId) {
-        // If not found by userId, try to match by name (case-insensitive)
-        const existingMemberByName = newBook.members.find(
-          (m: Member) => !m.userId && m.name.trim().toLowerCase() === myName.trim().toLowerCase()
-        );
-
-        if (existingMemberByName) {
-          // Link my memberId to the existing placeholder member
-          existingMemberByName.userId = myId;
-        } else {
-          // If no matching name found, add me as a NEW member
-          newBook.members.push({
-            id: crypto.randomUUID(),
-            name: myName,
-            userId: myId
-          });
+      if (!findSelfMember(newBook) && claimMemberId) {
+        const claimed = newBook.members.find((m) => m.id === claimMemberId && !m.userId);
+        if (claimed) {
+          // Use the public memberId (never the secret backup id).
+          claimed.userId = userProfile.value.memberId;
+          // A pending local book edit: setting currentBookId below fires the
+          // auto-pull watcher, which would otherwise adopt the cloud member list
+          // (still unclaimed) during the save() await and drop the link before
+          // it is pushed. The push marks the book synced again.
+          newBook.isSynced = false;
+          shouldSyncBack = true;
         }
-        shouldSyncBack = true;
       }
 
       books.value.push(newBook);
@@ -284,24 +295,33 @@ export function setupBookActions(
   //  Book CRUD
   // =====================
 
-  const createBook = async (name: string, memberNames: string[], currency: CurrencyCode) => {
-    if (!name.trim()) return null;
-    const members: Member[] = memberNames
-      .filter((n) => n.trim())
-      .map((n, i) => {
-        const m: Member = { id: crypto.randomUUID(), name: n.trim() };
-        // Assume the first member added is the current user if they are creating it.
-        // Use the public memberId (never the secret backup id).
-        if (i === 0 && userProfile.value.memberId) {
-          m.userId = userProfile.value.memberId;
+  /** Members from editor drafts: trimmed, blank rows dropped, ids kept. */
+  const toMembers = (drafts: MemberDraft[], existing: Member[] = []): Member[] => {
+    const byId = new Map(existing.map((m) => [m.id, m]));
+    return drafts
+      .map((d) => ({ ...d, name: d.name.trim() }))
+      .filter((d) => d.name)
+      .map((d) => {
+        const current = byId.get(d.id);
+        // Known id → rename (keeps userId); otherwise a new member with the
+        // draft's pre-generated id.
+        // A draft may also claim an unlinked member as the user ("this is me").
+        if (current) {
+          const claimed = !current.userId && d.userId ? { userId: d.userId } : {};
+          return { ...current, name: d.name, ...claimed };
         }
+        const m: Member = { id: d.id, name: d.name };
+        if (d.userId) m.userId = d.userId;
         return m;
       });
+  };
 
+  const createBook = async (name: string, drafts: MemberDraft[], currency: CurrencyCode) => {
+    if (!name.trim()) return null;
     const book: Book = {
       id: crypto.randomUUID(),
-      name,
-      members,
+      name: name.trim(),
+      members: toMembers(drafts),
       currency,
       createdAt: new Date().toISOString(),
       isSynced: false,
@@ -322,41 +342,15 @@ export function setupBookActions(
   const updateBook = async (
     bookId: string,
     name: string,
-    memberNames: string[],
+    drafts: MemberDraft[],
     currency?: CurrencyCode
   ) => {
     const book = books.value.find((b) => b.id === bookId);
     if (!book || !name.trim()) return null;
 
     const existingMembers = book.members;
-    const trimmedNames = memberNames.map((n) => n.trim()).filter(Boolean);
-
-    // First pass: exact name matches keep their identity (id + userId).
-    const usedExisting = new Set<string>();
-    const matched: (Member | null)[] = trimmedNames.map((name) => {
-      const found = existingMembers.find((m) => !usedExisting.has(m.id) && m.name === name);
-      if (found) {
-        usedExisting.add(found.id);
-        return found;
-      }
-      return null;
-    });
-
-    // Second pass: pair each still-unmatched name with a leftover existing member
-    // (in order) and treat it as a RENAME — preserving the id keeps all historical
-    // paidBy/split references intact instead of reassigning them to member #0.
-    const leftoverExisting = existingMembers.filter((m) => !usedExisting.has(m.id));
-    let li = 0;
-    const newMembers: Member[] = matched.map((m, idx) => {
-      if (m) return m;
-      const name = trimmedNames[idx];
-      if (li < leftoverExisting.length) {
-        const renamed: Member = { ...leftoverExisting[li], name };
-        li++;
-        return renamed;
-      }
-      return { id: crypto.randomUUID(), name };
-    });
+    const newMembers = toMembers(drafts, existingMembers);
+    if (newMembers.length === 0) return null;
 
     const newMemberIds = newMembers.map((m) => m.id);
     const fallbackId = newMembers[0]?.id || "";
@@ -372,7 +366,8 @@ export function setupBookActions(
     // Adjust only records that still reference a genuinely removed member.
     records.value.filter((r) => r.bookId === bookId).forEach((r) => {
       let changed = false;
-      if (!newMemberIds.includes(r.paidById)) {
+      // Income records have no payer (""); leave them alone.
+      if (r.paidById && !newMemberIds.includes(r.paidById)) {
         r.paidById = fallbackId;
         changed = true;
       }
@@ -516,7 +511,9 @@ export function setupBookActions(
     settlements,
     getMemberCategoryBreakdown,
     publishBook,
-    joinBookByCode,
+    previewSharedBook,
+    joinSharedBook,
+    findSelfMember,
     syncSharedBook,
     pullSharedBook,
   };

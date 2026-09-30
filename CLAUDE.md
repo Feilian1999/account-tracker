@@ -160,6 +160,18 @@ RecordTemplate  { id, name, type, amount: number|null, currency?, category, note
 UserProfile     { id, memberId, name, theme, animations, baseCurrency? }
 ```
 
+**Members** are edited as rows (`MemberListEditor`, drafts in
+`utils/member.ts`), never as a list of names. Every draft carries an id — an
+existing member's, or a fresh UUID made when the row is added (so the avatar
+colour, derived from the id, doesn't change on save). `createBook` /
+`updateBook` treat a known id as a rename and any other id as a new member;
+there is no name matching. The editor enforces unique, non-blank names (joining
+suggests a member by name), keeps "me" (the `isSelf` member) unremovable and
+blocks removing a member any record involves (`memberRecordCount`, which also
+counts legacy `"all"` splits). A book without "me" offers "this is me" on
+unlinked rows. `MemberAvatar` renders a member everywhere (initial + colour by
+id, using -100/-800 shades because the sheep theme re-colours -50 backgrounds).
+
 `splitAmongIds` may contain the literal `"all"` (legacy records) meaning every
 current member; every consumer expands it. `paidById` is `""` for income.
 
@@ -256,12 +268,17 @@ Pulls fire on `currentBookId` change (watcher, `immediate`), on `selectBook`,
 when `BookDetail` mounts, and when the add-record or settlement sheet opens.
 Pull/push errors are only logged — there is no user-visible sync failure state.
 
-`joinBookByCode` enrolls the joiner: it matches an existing member by
-`userId === memberId` (or the legacy backup `id`), else claims an unlinked
-member with the same name (case-insensitive), else appends a new member — then
-pushes **immediately and awaits it** (not debounced) so the next pull cannot
-drop the enrollment. Joining a book id that already exists locally asks to
-overwrite it.
+Joining is two steps and **never adds a member**. `previewSharedBook(code)`
+fetches the book; `JoinBookModal` then asks "which one are you?" — the joiner
+picks an existing unlinked member (the one with their name is preselected, not
+auto-claimed) or joins without one. `joinSharedBook(code, data, memberId|null)`
+links the pick to the public `memberId`, marks the book `isSynced: false` and
+pushes **immediately, awaited**. The `isSynced: false` matters: setting
+`currentBookId` fires the auto-pull watcher, which would otherwise adopt the
+still-unclaimed cloud list during the `save()` await and push that. A joiner
+already linked (by `memberId`, or the legacy backup `id` — `isSelf` in
+`utils/member.ts`) skips the picker. Joining a book id that already exists
+locally asks to overwrite it.
 
 `ImportFromBookSheet` temporarily switches `currentBookId` to read
 `memberStats` for another book, then restores it. `importMyShareFromBook`
@@ -332,7 +349,7 @@ and `pullSharedBook` adopts it.
 `isSynced: false` marks locally-modified records; `pendingDelete*Ids[]` arrays
 (one per entity, persisted in IndexedDB) are tombstones added on every
 `delete*()` — including `pendingDeleteMemberIds`, added by `updateBook` for any
-member dropped from the submitted name list. All are cleared by a successful
+member id missing from the submitted drafts. All are cleared by a successful
 `backupByUUID`; record and member tombstones for a shared book also clear after
 that book's successful shared push, which is what propagates the deletion.
 
@@ -388,10 +405,12 @@ locally.
   introducing a new accent colour.
 - **Shared classes** in `style.css` `@layer components`: `page-container`,
   `section-title`, `hint-text`, `empty-state`, `record-card`, `record-icon`,
-  `input-field`, `label-text`, `btn-primary`/`btn-secondary`/`btn-ghost`,
-  `btn-delete`, `tag-pill`, `header-chip`. Prefer them over re-spelling the
-  utilities.
-- **Older overlays** (`CreateBookModal`, `JoinBookModal`, `ShareBookModal`,
+  `input-field`, `label-text`, `btn-primary`/`btn-secondary`/`btn-ghost`
+  (the text buttons of the small centred modals; `.theme-sheep .btn-primary`
+  is re-coloured explicitly, since `@apply`'d utilities don't match the sheep
+  selectors), `btn-delete`, `tag-pill`, `header-chip`. Prefer them over
+  re-spelling the utilities.
+- **Older overlays** (`JoinBookModal`, `ShareBookModal`,
   `MonthSelector`'s picker) hand-roll `Teleport` + `role="dialog"` instead of
   using `BaseBottomSheet`; they still register with `useEscapeKey`. Confirms and
   prompts use native `confirm()` / `prompt()`.

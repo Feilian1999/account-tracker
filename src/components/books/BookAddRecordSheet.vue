@@ -222,12 +222,13 @@
                 type="button"
                 @click="form.paidById = m.id"
                 :class="[
-                  'rounded-lg border px-3 py-1.5 text-xs font-bold transition-all',
+                  'flex items-center gap-1.5 rounded-lg border py-1 pr-3 pl-1 text-xs font-bold transition-all',
                   form.paidById === m.id
                     ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm dark:border-blue-400 dark:bg-blue-900/40 dark:text-blue-300'
                     : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700',
                 ]"
               >
+                <MemberAvatar :name="m.name" :seed="m.id" size="xs" />
                 {{ m.name }}
               </button>
             </div>
@@ -303,12 +304,13 @@
                   type="button"
                   @click="toggleMember(m.id)"
                   :class="[
-                    'rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-all',
+                    'flex items-center gap-1.5 rounded-lg border py-1 pr-2.5 pl-1 text-xs font-bold transition-all',
                     form.splitAmongIds.includes(m.id)
                       ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm dark:border-blue-400 dark:bg-blue-900/40 dark:text-blue-300'
                       : 'border-gray-200 bg-white text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400',
                   ]"
                 >
+                  <MemberAvatar :name="m.name" :seed="m.id" size="xs" />
                   {{ m.name }}
                 </button>
               </div>
@@ -462,6 +464,7 @@ import CloseButton from "../CloseButton.vue";
 import CategoryIcon from "../CategoryIcon.vue";
 import CalculatorKeyboard from "../CalculatorKeyboard.vue";
 import CategoryPickerSheet from "../CategoryPickerSheet.vue";
+import MemberAvatar from "../MemberAvatar.vue";
 import { getLocalDateString } from "../../utils/date";
 import { parseAmountExpression } from "../../utils/amountExpression";
 import { usePrimaryAction } from "../../composables/usePrimaryAction";

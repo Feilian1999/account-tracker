@@ -24,11 +24,7 @@
             @click="openMemberCategory(stat.member)"
           >
             <div class="mb-3 flex items-center gap-3">
-              <div
-                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-lg font-bold text-blue-600 dark:bg-blue-900/40 dark:text-blue-400"
-              >
-                {{ stat.member.name.charAt(0) }}
-              </div>
+              <MemberAvatar :name="stat.member.name" :seed="stat.member.id" size="lg" />
               <span class="flex-1 font-bold text-gray-800 dark:text-gray-200">{{
                 stat.member.name
               }}</span>
@@ -122,10 +118,10 @@
             :key="i"
             class="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:shadow-md dark:border-gray-800 dark:bg-gray-800"
           >
-            <div
-              class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-xl font-bold text-red-600 shadow-inner dark:bg-red-900/30 dark:text-red-400 dark:shadow-none"
-            >
-              {{ s.from.name.charAt(0) }}
+            <div class="flex shrink-0 items-center" aria-hidden="true">
+              <MemberAvatar :name="s.from.name" :seed="s.from.id" />
+              <span class="material-symbols-outlined mx-0.5 text-gray-300 dark:text-gray-600" style="font-size: 16px">arrow_forward</span>
+              <MemberAvatar :name="s.to.name" :seed="s.to.id" />
             </div>
             <div class="min-w-0 flex-1">
               <p
@@ -178,6 +174,7 @@ import type { CurrencyCode } from "../../stores/types";
 import CategoryIcon from "../CategoryIcon.vue";
 import BaseBottomSheet from "../BaseBottomSheet.vue";
 import MemberCategorySheet from "./MemberCategorySheet.vue";
+import MemberAvatar from "../MemberAvatar.vue";
 
 const props = defineProps<{
   modelValue: boolean;
