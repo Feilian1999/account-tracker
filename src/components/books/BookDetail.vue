@@ -168,6 +168,7 @@
                     <RecordAmount
                       :record="record"
                       :expectedCurrency="bookCurrency"
+                      :legacyCurrency="bookCurrency"
                       :amountClass="[
                         'text-lg',
                         record.type === 'expense'

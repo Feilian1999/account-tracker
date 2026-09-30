@@ -5,6 +5,23 @@ import type { MemberDraft } from "../src/utils/member";
 
 const store = {
   userProfile: { id: "secret", memberId: "me", name: "Allen" },
+  books: [
+    {
+      id: "b1",
+      members: [
+        { id: "me-row", name: "Allen", userId: "me" },
+        { id: "bob", name: "Bob" },
+        { id: "cara", name: "Cara" },
+      ],
+    },
+    {
+      id: "legacy",
+      members: [
+        { id: "me-row", name: "Allen", userId: "me" },
+        { id: "bob", name: "Bob" },
+      ],
+    },
+  ],
   records: [
     {
       id: "r1",
@@ -13,6 +30,15 @@ const store = {
       amount: 100,
       paidById: "bob",
       splitAmongIds: ["bob"],
+    },
+    // Legacy "all" split: involves every SAVED member of the book.
+    {
+      id: "r2",
+      bookId: "legacy",
+      type: "expense",
+      amount: 50,
+      paidById: "me-row",
+      splitAmongIds: ["all"],
     },
   ],
 };
@@ -86,6 +112,24 @@ describe("MemberListEditor", () => {
     expect(removeButtons[0].attributes("disabled")).toBeDefined();
     expect(removeButtons[1].attributes("disabled")).toBeUndefined();
     expect(wrapper.text()).toContain("members.recordCount");
+  });
+
+  it("lets a just-added row be removed even when a legacy 'all' split exists", async () => {
+    wrapper = mountEditor(
+      [
+        { id: "me-row", name: "Allen", userId: "me" },
+        { id: "bob", name: "Bob" },
+      ],
+      "legacy",
+    );
+    await addInput().setValue("Dan");
+    await addInput().trigger("keydown", { key: "Enter" });
+    const removes = wrapper.findAll('button[aria-label^="members.remove"]');
+    // Bob is in the "all" split → locked; the unsaved Dan row is not.
+    expect(removes[0].attributes("disabled")).toBeDefined();
+    expect(removes[1].attributes("disabled")).toBeUndefined();
+    await removes[1].trigger("click");
+    expect(latest().map((m) => m.name)).toEqual(["Allen", "Bob"]);
   });
 
   it("removes a member", async () => {

@@ -181,9 +181,23 @@ const errorOf = (id: string) =>
       ? t("members.errorDuplicate")
       : "";
 
-// Only saved members can have records; a new draft id matches nothing.
+// Only members already saved in the book can have records. Checked explicitly:
+// memberRecordCount counts legacy "all" splits for ANY id, which would lock a
+// row the user just added (and not yet saved) in such a book.
+const savedIds = computed(
+  () =>
+    new Set(
+      store.books
+        .find((b) => b.id === props.bookId)
+        ?.members.map((m) => m.id) ?? [],
+    ),
+);
 const recordCount = (id: string) =>
-  props.bookId ? memberRecordCount(store.records, props.bookId, id) : 0;
+  !savedIds.value.has(id)
+    ? 0
+    : props.bookId
+      ? memberRecordCount(store.records, props.bookId, id)
+      : 0;
 const hasSelf = computed(() =>
   props.modelValue.some((m) => isSelf(m, store.userProfile)),
 );

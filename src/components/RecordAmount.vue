@@ -22,7 +22,10 @@
       @click.stop="showRate = !showRate"
     >
       ≈ {{ secondary }}
-      <span class="material-symbols-outlined" style="font-size: 13px" aria-hidden="true"
+      <span
+        class="material-symbols-outlined"
+        style="font-size: 13px"
+        aria-hidden="true"
         >info</span
       >
     </button>
@@ -43,6 +46,7 @@ import {
   amountCurrencyOf,
   formatMoney,
   formatRate,
+  LEGACY_CURRENCY,
   originalOf,
   type MoneyFields,
 } from "../utils/currency";
@@ -55,18 +59,24 @@ const props = defineProps<{
    * still waiting to be converted.
    */
   expectedCurrency: CurrencyCode;
+  /**
+   * The currency of a record that has no `amountCurrency`: TWD for personal
+   * records (the only currency before multi-currency support), the book
+   * currency for book records. NOT expectedCurrency — a legacy TWD record left
+   * pending after a base-currency change must still read as TWD.
+   */
+  legacyCurrency?: CurrencyCode;
   amountClass?: string;
 }>();
 
 const { t, locale } = useI18n();
 const showRate = ref(false);
 
+const legacy = computed(() => props.legacyCurrency ?? LEGACY_CURRENCY);
 const amountCurrency = computed(() =>
-  amountCurrencyOf(props.record, props.expectedCurrency),
+  amountCurrencyOf(props.record, legacy.value),
 );
-const original = computed(() =>
-  originalOf(props.record, props.expectedCurrency),
-);
+const original = computed(() => originalOf(props.record, legacy.value));
 const foreign = computed(
   () => original.value.currency !== amountCurrency.value,
 );
