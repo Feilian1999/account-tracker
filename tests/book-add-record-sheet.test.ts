@@ -34,7 +34,7 @@ vi.mock("../src/stores/tracker", () => ({
 }));
 
 vi.mock("vue-i18n", () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({ t: (key: string) => key, locale: { value: "en" } }),
 }));
 
 describe("BookAddRecordSheet", () => {
@@ -43,6 +43,7 @@ describe("BookAddRecordSheet", () => {
       props: {
         modelValue: false,
         bookName: "Trip",
+        currency: "TWD" as const,
         members: [
           { id: "member-1", name: "Alice" },
           { id: "member-2", name: "Bob" },
