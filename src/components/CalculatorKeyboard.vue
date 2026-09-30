@@ -26,7 +26,7 @@
         <button type="button" class="calculator-btn-calc calculator-btn-white" @click="handleInput('3')">3</button>
         
         <button type="button" class="calculator-btn-calc calculator-btn-white col-span-2" @click="handleInput('0')">0</button>
-        <button type="button" class="calculator-btn-calc calculator-btn-white" @click="handleInput('.')">.</button>
+        <button type="button" class="calculator-btn-calc calculator-btn-white disabled:opacity-30" :disabled="decimals === 0" @click="handleInput('.')">.</button>
       </div>
 
       <div class="col-span-1 grid grid-rows-2 gap-2">
@@ -39,9 +39,14 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{
-  modelValue: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    modelValue: string;
+    /** Decimal places of the amount's currency; 0 disables the "." key. */
+    decimals?: number;
+  }>(),
+  { decimals: 2 },
+);
 
 const emit = defineEmits<{
   (e: "update:modelValue", v: string): void;
@@ -54,8 +59,9 @@ const evaluateExpression = (str: string): string => {
     if (/^[\d+\-*/. ]+$/.test(str)) {
       const result = new Function(`return ${str}`)();
       if (!isNaN(result) && result > 0 && isFinite(result)) {
-        // Drop decimals if not needed
-        return String(Math.floor(result * 100) / 100);
+        // Round to the currency's precision (flooring dropped cents).
+        const factor = 10 ** props.decimals;
+        return String(Math.round(result * factor) / factor);
       }
     }
   } catch {

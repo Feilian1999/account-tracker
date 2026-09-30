@@ -1,8 +1,10 @@
 import type { Ref, ComputedRef } from "vue";
 import { computed } from "vue";
-import type { PersonalRecord } from "./types";
+import type { CurrencyCode, PersonalRecord } from "./types";
 import { useToast } from "../composables/useToast";
 import { getLocalDateString } from "../utils/date";
+import { buildMoneyFields, sumInCurrency } from "../utils/currency";
+import { getRate } from "../utils/fxRates";
 import { i18n } from "../i18n";
 
 /**
@@ -19,6 +21,8 @@ export function setupPersonalActions(
     }[]
   >,
   currentBook: ComputedRef<{ id: string; name: string } | null>,
+  currentBookCurrency: ComputedRef<CurrencyCode>,
+  baseCurrency: ComputedRef<CurrencyCode>,
   pendingDeletePersonalRecordIds: Ref<string[]>,
   save: () => Promise<void>,
 ) {
@@ -53,24 +57,21 @@ export function setupPersonalActions(
     await save();
   };
 
-  // ---- Summaries ----
+  // ---- Summaries (records pending conversion are excluded) ----
   const personalTotalExpense = computed(() =>
-    personalRecords.value
-      .filter((r) => r.type === "expense")
-      .reduce((s, r) => s + r.amount, 0),
+    sumInCurrency(personalRecords.value, "expense", baseCurrency.value),
   );
   const personalTotalIncome = computed(() =>
-    personalRecords.value
-      .filter((r) => r.type === "income")
-      .reduce((s, r) => s + r.amount, 0),
+    sumInCurrency(personalRecords.value, "income", baseCurrency.value),
   );
   const personalBalance = computed(
     () => personalTotalIncome.value - personalTotalExpense.value,
   );
 
   // ---- Import from Book ----
+  /** Resolves false when nothing was imported. */
   const importMyShareFromBook = async (memberId: string) => {
-    if (!currentBook.value) return;
+    if (!currentBook.value) return false;
 
     const alreadyImported = personalRecords.value.some(
       (r) => r.sourceBookId === currentBook.value!.id,
@@ -82,20 +83,39 @@ export function setupPersonalActions(
           name: currentBook.value.name,
         }),
       );
-      return;
+      return false;
     }
     const stat = memberStats.value.find((s) => s.member.id === memberId);
-    if (!stat || stat.owed <= 0) return;
+    if (!stat || stat.owed <= 0) return false;
 
+    // Capture before the await: the caller restores its own current book after.
+    const book = currentBook.value;
+    const bookCurrency = currentBookCurrency.value;
+    const target = baseCurrency.value;
     const today = getLocalDateString();
+
+    // `owed` is in the book currency; convert it once, at today's rate.
+    const fx = await getRate(bookCurrency, target, today);
+    if (!fx) {
+      useToast().error(i18n.global.t("currency.rateUnavailable"));
+      return false;
+    }
     await addPersonalRecord({
       type: "expense",
-      amount: stat.owed,
-      category: currentBook.value.name,
+      ...buildMoneyFields({
+        inputAmount: stat.owed,
+        inputCurrency: bookCurrency,
+        targetCurrency: target,
+        rate: fx.rate,
+        rateDate: fx.rateDate,
+        rateSource: fx.source,
+      }),
+      category: book.name,
       date: today,
       note: "",
-      sourceBookId: currentBook.value.id,
+      sourceBookId: book.id,
     });
+    return true;
   };
 
   return {
@@ -106,9 +126,14 @@ export function setupPersonalActions(
     personalTotalIncome,
     personalBalance,
     importMyShareFromBook,
+    // Third-party backups carry no currency: tag them with the base currency.
     importPersonalRecords: async (recordsToImport: PersonalRecord[]) => {
       personalRecords.value.push(
-        ...recordsToImport.map((r) => ({ ...r, isSynced: false })),
+        ...recordsToImport.map((r) => ({
+          ...r,
+          amountCurrency: r.amountCurrency ?? baseCurrency.value,
+          isSynced: false,
+        })),
       );
       await save();
     },

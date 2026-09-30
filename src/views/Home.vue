@@ -7,6 +7,7 @@
     >
       <h1 class="sr-only">{{ $t("home.personalRecords") }}</h1>
       <SummaryBar
+        :currency="store.baseCurrency"
         :totalExpense="filteredExpense"
         :totalIncome="filteredIncome"
         :balance="filteredBalance"
@@ -233,6 +234,29 @@
         </div>
       </div>
 
+      <div
+        v-if="store.pendingConversionCount > 0"
+        class="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-amber-50 px-4 py-3 dark:bg-amber-900/20"
+        role="status"
+      >
+        <p class="text-xs font-bold text-amber-700 dark:text-amber-400">
+          {{
+            $t("currency.pendingBanner", {
+              count: store.pendingConversionCount,
+              currency: store.baseCurrency,
+            })
+          }}
+        </p>
+        <button
+          type="button"
+          class="shrink-0 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-amber-700 shadow-sm disabled:opacity-50 dark:bg-gray-800 dark:text-amber-400"
+          :disabled="retrying"
+          @click="retryConversion"
+        >
+          {{ retrying ? $t("baseCurrency.converting") : $t("currency.retry") }}
+        </button>
+      </div>
+
       <section
         v-if="filteredPersonalRecords.length === 0"
         class="empty-state py-10 text-sm"
@@ -281,6 +305,9 @@ import { colorMap } from "../utils/category";
 import { getLocalDateString, getLocalYearMonthString } from "../utils/date";
 import { useEscapeKey } from "../composables/useEscapeKey";
 import { usePrimaryAction } from "../composables/usePrimaryAction";
+import { useToast } from "../composables/useToast";
+import { useI18n } from "vue-i18n";
+import { currencyOf, sumInCurrency } from "../utils/currency";
 
 const store = useTrackerStore();
 const showForm = ref(false);
@@ -331,16 +358,29 @@ const groupedRecords = computed(() => {
   return Array.from(groups.entries()).sort((a, b) => b[0].localeCompare(a[0]));
 });
 
+// Records still pending conversion to the base currency are left out.
 const filteredExpense = computed(() =>
-  filteredPersonalRecords.value
-    .filter((r) => r.type === "expense")
-    .reduce((s, r) => s + r.amount, 0),
+  sumInCurrency(filteredPersonalRecords.value, "expense", store.baseCurrency),
 );
 const filteredIncome = computed(() =>
-  filteredPersonalRecords.value
-    .filter((r) => r.type === "income")
-    .reduce((s, r) => s + r.amount, 0),
+  sumInCurrency(filteredPersonalRecords.value, "income", store.baseCurrency),
 );
+
+const toast = useToast();
+const { t } = useI18n();
+const retrying = ref(false);
+const retryConversion = async () => {
+  if (retrying.value) return;
+  retrying.value = true;
+  try {
+    const { converted, pending } = await store.convertPendingRecords();
+    if (pending > 0)
+      toast.warning(t("currency.retryFailed", { count: pending }));
+    else toast.success(t("currency.retryDone", { count: converted }));
+  } finally {
+    retrying.value = false;
+  }
+};
 const filteredBalance = computed(
   () => filteredIncome.value - filteredExpense.value,
 );
@@ -361,13 +401,19 @@ const openEditRecord = (id: string) => {
 
 const openNewRecordFromTemplate = async (templateId: string) => {
   const tpl = store.recordTemplates.find((t) => t.id === templateId);
-  if (tpl && tpl.amount !== null) {
+  // One tap only when no conversion is needed; otherwise the form fetches a rate.
+  if (
+    tpl &&
+    tpl.amount !== null &&
+    currencyOf(tpl.currency) === store.baseCurrency
+  ) {
     const catName =
       store.allCategories.find((c) => c.id === tpl.category)?.name ??
       tpl.category;
     await store.addPersonalRecord({
       type: tpl.type,
       amount: tpl.amount,
+      amountCurrency: store.baseCurrency,
       category: catName,
       date: getLocalDateString(),
       note: tpl.note,

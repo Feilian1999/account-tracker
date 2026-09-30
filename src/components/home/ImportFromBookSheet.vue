@@ -44,6 +44,7 @@ import { useTrackerStore } from "../../stores/tracker";
 import { useI18n } from "vue-i18n";
 import { useToast } from "../../composables/useToast";
 import BaseBottomSheet from "../BaseBottomSheet.vue";
+import { formatMoney } from "../../utils/currency";
 
 defineProps<{ modelValue: boolean }>();
 const emit = defineEmits<{
@@ -51,7 +52,7 @@ const emit = defineEmits<{
 }>();
 
 const store = useTrackerStore();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const toast = useToast();
 
 const handleImport = async (
@@ -77,11 +78,8 @@ const handleImport = async (
     return;
   }
 
-  if (
-    confirm(
-      t("home.importConfirm", { member: memberName, book: bookName, amount: stat.owed.toLocaleString() }),
-    )
-  ) {
+  const amount = formatMoney(stat.owed, store.currentBookCurrency, locale.value);
+  if (confirm(t("home.importConfirm", { member: memberName, book: bookName, amount }))) {
     await store.importMyShareFromBook(memberId);
   }
   restorePrev();

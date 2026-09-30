@@ -8,9 +8,10 @@ import { setupBookActions } from "./books";
 import { setupPersonalActions } from "./personal";
 import { setupTemplateActions } from "./templates";
 import { setupCloudSyncActions } from "./cloud-sync";
+import { setupBaseCurrencyActions } from "./base-currency";
 
 // Re-export types & constants for backward compatibility
-export type { Member, Book, RecordItem, PersonalRecord, RecordTemplate, UserProfile, Category, Settlement } from "./types";
+export type { Member, Book, RecordItem, PersonalRecord, RecordTemplate, UserProfile, Category, Settlement, CurrencyCode } from "./types";
 export { defaultCategories } from "./constants";
 
 export const useTrackerStore = defineStore("tracker", () => {
@@ -167,7 +168,16 @@ export const useTrackerStore = defineStore("tracker", () => {
   const userActions = setupUserActions(userProfile, save);
   const categoryActions = setupCategoryActions(customCategories, deletedCategoryIds, pendingDeleteCustomCategoryIds);
   const bookActions = setupBookActions(books, records, currentBookId, userProfile, pendingDeleteBookIds, pendingDeleteRecordIds, pendingDeleteMemberIds, save);
-  const personalActions = setupPersonalActions(personalRecords, bookActions.memberStats, bookActions.currentBook, pendingDeletePersonalRecordIds, save);
+  const baseCurrencyActions = setupBaseCurrencyActions(userProfile, personalRecords, save);
+  const personalActions = setupPersonalActions(
+    personalRecords,
+    bookActions.memberStats,
+    bookActions.currentBook,
+    bookActions.currentBookCurrency,
+    baseCurrencyActions.baseCurrency,
+    pendingDeletePersonalRecordIds,
+    save,
+  );
   const templateActions = setupTemplateActions(recordTemplates, pendingDeleteTemplateIds, save);
   const cloudSyncActions = setupCloudSyncActions(
     userProfile,
@@ -214,6 +224,9 @@ export const useTrackerStore = defineStore("tracker", () => {
 
     // Personal Records
     ...personalActions,
+
+    // Base currency
+    ...baseCurrencyActions,
 
     // Templates
     ...templateActions,

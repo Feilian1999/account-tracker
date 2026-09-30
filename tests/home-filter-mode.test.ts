@@ -15,12 +15,19 @@ const store = {
   ],
   allCategories: [],
   recordTemplates: [],
+  baseCurrency: "TWD",
+  pendingConversionCount: 0,
+  convertPendingRecords: vi.fn(),
   deletePersonalRecord: vi.fn(),
   addPersonalRecord: vi.fn(),
 };
 
 vi.mock("../src/stores/tracker", () => ({
   useTrackerStore: () => store,
+}));
+
+vi.mock("vue-i18n", () => ({
+  useI18n: () => ({ locale: { value: "en" }, t: (key: string) => key }),
 }));
 
 describe("Home filter mode", () => {

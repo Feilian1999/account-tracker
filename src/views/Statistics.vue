@@ -17,6 +17,7 @@
       </div>
 
       <SummaryBar
+        :currency="base"
         :totalExpense="filteredExpense"
         :totalIncome="filteredIncome"
         :balance="filteredBalance"
@@ -108,6 +109,7 @@
             :data="trendData"
             :maxVal="trendMaxVal"
             :activeTab="categoryTab"
+            :currency="base"
           />
         </section>
 
@@ -119,8 +121,50 @@
             :data="categoryBreakdown"
             :total="categoryTotal"
             :activeTab="categoryTab"
+            :currency="base"
           />
         </section>
+
+        <section
+          v-if="currencyBreakdown.length > 1"
+          aria-labelledby="statistics-currency-heading"
+        >
+          <h2 id="statistics-currency-heading" class="section-title mb-3">
+            {{ $t("statistics.byCurrency") }}
+          </h2>
+          <ul class="space-y-2">
+            <li
+              v-for="row in currencyBreakdown"
+              :key="row.currency"
+              class="flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+            >
+              <div>
+                <p class="text-sm font-bold text-gray-800 dark:text-gray-200">
+                  {{ row.currency }} ·
+                  {{ $t(`currency.names.${row.currency}`) }}
+                </p>
+                <p class="hint-text mt-0.5">
+                  {{ row.count }} {{ $t("statistics.records") }}
+                </p>
+              </div>
+              <div class="text-right">
+                <p class="font-bold text-gray-800 dark:text-gray-100">
+                  {{ formatMoney(row.originalTotal, row.currency, locale) }}
+                </p>
+                <p v-if="row.currency !== base" class="hint-text mt-0.5">
+                  ≈ {{ formatMoney(row.baseTotal, base, locale) }}
+                </p>
+              </div>
+            </li>
+          </ul>
+        </section>
+
+        <p
+          v-if="pendingInFilter > 0"
+          class="text-center text-xs font-medium text-amber-600 dark:text-amber-400"
+        >
+          {{ $t("statistics.pendingExcluded", { count: pendingInFilter }) }}
+        </p>
       </template>
     </div>
   </main>
@@ -137,9 +181,17 @@ import type { DateFilter } from "../components/DateFilterBar.vue";
 import { useTrackerStore } from "../stores/tracker";
 import { colorMap } from "../utils/category";
 import { getDaysInMonth, getLocalDateString } from "../utils/date";
+import {
+  amountCurrencyOf,
+  formatMoney,
+  originalOf,
+  roundTo,
+} from "../utils/currency";
+import type { CurrencyCode } from "../stores/types";
 
 const store = useTrackerStore();
-const { te, t } = useI18n();
+const { te, t, locale } = useI18n();
+const base = computed(() => store.baseCurrency);
 
 const today = getLocalDateString();
 const currentYear = today.slice(0, 4);
@@ -156,7 +208,11 @@ const onFilterChange = (f: DateFilter) => {
 };
 const recordDates = computed(() => store.personalRecords.map((r) => r.date));
 
-const filteredRecords = computed(() => {
+// Records pending conversion are in another currency and can't be summed.
+const inBase = (r: { amountCurrency?: CurrencyCode }) =>
+  amountCurrencyOf(r) === base.value;
+
+const filteredAllCurrencies = computed(() => {
   const records = store.personalRecords;
   const { mode, year, month, date } = dateFilter.value;
   if (mode === "all") return records;
@@ -166,6 +222,13 @@ const filteredRecords = computed(() => {
   if (mode === "date") return records.filter((r) => r.date === date);
   return records;
 });
+
+const filteredRecords = computed(() =>
+  filteredAllCurrencies.value.filter(inBase),
+);
+const pendingInFilter = computed(
+  () => filteredAllCurrencies.value.length - filteredRecords.value.length,
+);
 
 const filteredExpense = computed(() =>
   filteredRecords.value
@@ -237,12 +300,36 @@ const categoryBreakdown = computed(() => {
     .map(([categoryName, data]) => ({
       categoryName,
       localizedName: getLocalizedCategoryName(categoryName),
-      total: Math.round(data.total),
+      total: roundTo(data.total, base.value),
       count: data.count,
       percentage: Math.round((data.total / total) * 100),
       style: getCategoryStyle(categoryName),
     }))
     .sort((a, b) => b.total - a.total);
+});
+
+// Totals per currency the records were typed in (only shown when there are several).
+const currencyBreakdown = computed(() => {
+  const map = new Map<
+    CurrencyCode,
+    { count: number; originalTotal: number; baseTotal: number }
+  >();
+  for (const record of filteredRecords.value) {
+    if (record.type !== categoryTab.value) continue;
+    const original = originalOf(record);
+    const entry = map.get(original.currency) ?? {
+      count: 0,
+      originalTotal: 0,
+      baseTotal: 0,
+    };
+    entry.count += 1;
+    entry.originalTotal += original.amount;
+    entry.baseTotal += record.amount;
+    map.set(original.currency, entry);
+  }
+  return [...map.entries()]
+    .map(([currency, data]) => ({ currency, ...data }))
+    .sort((a, b) => b.baseTotal - a.baseTotal);
 });
 
 const trendTitle = computed(() => {

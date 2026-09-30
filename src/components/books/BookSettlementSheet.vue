@@ -49,7 +49,7 @@
                 <p
                   class="mt-0.5 text-sm font-bold text-gray-700 dark:text-gray-300"
                 >
-                  {{ stat.paid.toLocaleString() }}
+                  {{ fmt(stat.paid) }}
                 </p>
               </div>
               <div class="flex-1 text-center">
@@ -61,7 +61,7 @@
                 <p
                   class="mt-0.5 text-sm font-bold text-gray-700 dark:text-gray-300"
                 >
-                  {{ stat.owed.toLocaleString() }}
+                  {{ fmt(stat.owed) }}
                 </p>
               </div>
               <div class="flex-1 text-center">
@@ -80,8 +80,7 @@
                         : 'text-gray-400 dark:text-gray-500',
                   ]"
                 >
-                  {{ stat.net > 0 ? "+" : ""
-                  }}{{ stat.net.toLocaleString() }}
+                  {{ formatMoney(stat.net, currency, locale, { signed: true }) }}
                 </p>
               </div>
             </div>
@@ -148,7 +147,7 @@
             >
               <span
                 class="text-base font-bold text-orange-600 dark:text-orange-400"
-                >NT$ {{ s.amount.toLocaleString() }}</span
+                >{{ fmt(s.amount) }}</span
               >
             </div>
           </div>
@@ -161,6 +160,7 @@
       :member="selectedMember"
       :categoryItems="selectedMemberCategoryItems"
       :total="selectedMemberTotal"
+      :currency="currency"
     />
   </BaseBottomSheet>
 </template>
@@ -172,6 +172,9 @@ import { useTrackerStore } from "../../stores/tracker";
 import type { Settlement, Member } from "../../stores/tracker";
 import type { CategoryBreakdownItem } from "../statistics/CategoryBreakdown.vue";
 import { colorMap } from "../../utils/category";
+import { formatMoney } from "../../utils/currency";
+import type { MemberStat } from "../../utils/settlement";
+import type { CurrencyCode } from "../../stores/types";
 import CategoryIcon from "../CategoryIcon.vue";
 import BaseBottomSheet from "../BaseBottomSheet.vue";
 import MemberCategorySheet from "./MemberCategorySheet.vue";
@@ -179,13 +182,15 @@ import MemberCategorySheet from "./MemberCategorySheet.vue";
 const props = defineProps<{
   modelValue: boolean;
   bookName: string;
-  memberStats: any[];
+  memberStats: MemberStat[];
   settlements: Settlement[];
+  currency: CurrencyCode;
 }>();
 
 const emit = defineEmits<{ "update:modelValue": [value: boolean] }>();
 const store = useTrackerStore();
-const { te, t } = useI18n();
+const { te, t, locale } = useI18n();
+const fmt = (amount: number) => formatMoney(amount, props.currency, locale.value);
 
 watch(
   () => props.modelValue,

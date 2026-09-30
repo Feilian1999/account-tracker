@@ -27,6 +27,7 @@
       v-model="showAddRecordSheet"
       :bookName="currentBook.name"
       :members="currentBook.members"
+      :currency="currencyOf(currentBook.currency)"
       :editRecordId="editRecordId"
     />
     <BookSettlementSheet
@@ -34,6 +35,7 @@
       :bookName="currentBook?.name ?? ''"
       :memberStats="store.memberStats"
       :settlements="store.settlements"
+      :currency="store.currentBookCurrency"
     />
     <JoinBookModal
       v-model="showJoinModal"
@@ -60,6 +62,7 @@ import { useToast } from "../composables/useToast";
 import { useTrackerStore } from "../stores/tracker";
 import { useEscapeKey } from "../composables/useEscapeKey";
 import { usePrimaryAction } from "../composables/usePrimaryAction";
+import { currencyOf } from "../utils/currency";
 
 const store = useTrackerStore();
 const toast = useToast();

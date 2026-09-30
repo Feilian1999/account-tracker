@@ -104,8 +104,8 @@
           class="w-16 shrink-0 text-sm font-semibold text-gray-600 dark:text-gray-400"
           >{{ $t("common.amount") }}</label
         >
-        <div class="flex flex-1 items-center justify-end gap-1">
-          <span class="text-sm font-semibold text-gray-400">NT$</span>
+        <div class="flex flex-1 items-center justify-end gap-2">
+          <CurrencySelect v-model="inputCurrency" compact />
           <input
             ref="amountInput"
             v-model="form.amountStr"
@@ -119,6 +119,18 @@
           />
         </div>
       </div>
+
+      <FxRateRow
+        v-if="isForeign"
+        :currency="inputCurrency"
+        :target="currency"
+        :rate="fxRate"
+        :rateDate="fxRateDate"
+        :source="fxSource"
+        :loading="fxLoading"
+        :converted="fxConverted"
+        @update:rate="setManualRate"
+      />
 
       <!-- 3. Category — opens the picker; kept outside the keyboard's v-show so
            it stays reachable while the amount is being typed. -->
@@ -165,6 +177,7 @@
       <CalculatorKeyboard
         v-if="showKeyboard"
         v-model="form.amountStr"
+        :decimals="decimalsOf(inputCurrency)"
         @submit="showKeyboard = false"
         class="mt-1 mb-2 rounded-2xl bg-gray-50 p-2 dark:bg-gray-800/50"
       />
@@ -305,9 +318,15 @@
               >
                 {{
                   $t("recordSheet.splitPerPerson", {
-                    amount: Math.floor(
-                      Number(form.amountStr) / form.splitAmongIds.length,
-                    ).toLocaleString(),
+                    amount: formatMoney(
+                      splitEvenly(
+                        fxConverted,
+                        form.splitAmongIds.length,
+                        currency,
+                      )[0],
+                      currency,
+                      locale,
+                    ),
                   })
                 }}
               </p>
@@ -330,7 +349,9 @@
                     class="w-16 shrink-0 truncate text-xs font-bold text-gray-700 dark:text-gray-300"
                     >{{ m.name }}</span
                   >
-                  <span class="text-xs font-semibold text-gray-400">NT$</span>
+                  <span class="text-xs font-semibold text-gray-400">{{
+                    symbolOf(inputCurrency)
+                  }}</span>
                   <div class="relative flex-1">
                     <input
                       v-model="form.splitCustomAmounts[m.id]"
@@ -363,7 +384,11 @@
               >
                 {{
                   $t("recordSheet.splitOverflow", {
-                    excess: Math.abs(remainingAmount).toLocaleString(),
+                    excess: formatMoney(
+                      Math.abs(remainingAmount),
+                      inputCurrency,
+                      locale,
+                    ),
                   })
                 }}
               </p>
@@ -378,10 +403,11 @@
               >
                 {{
                   $t("recordSheet.splitTotal", {
-                    total: filledAllocated.toLocaleString(),
+                    total: formatMoney(filledAllocated, inputCurrency, locale),
                   })
                 }}
-                / {{ Number(form.amountStr).toLocaleString() }}
+                /
+                {{ formatMoney(Number(form.amountStr), inputCurrency, locale) }}
               </p>
             </template>
           </div>
@@ -439,10 +465,27 @@ import CategoryPickerSheet from "../CategoryPickerSheet.vue";
 import { getLocalDateString } from "../../utils/date";
 import { parseAmountExpression } from "../../utils/amountExpression";
 import { usePrimaryAction } from "../../composables/usePrimaryAction";
+import { useFxInput } from "../../composables/useFxInput";
+import CurrencySelect from "../CurrencySelect.vue";
+import FxRateRow from "../FxRateRow.vue";
+import type { CurrencyCode } from "../../stores/types";
+import {
+  allocateProportionally,
+  bookedOf,
+  currencyOf,
+  decimalsOf,
+  formatMoney,
+  originalOf,
+  roundTo,
+  splitEvenly,
+  symbolOf,
+} from "../../utils/currency";
 const props = defineProps<{
   modelValue: boolean;
   bookName: string;
   members: Member[];
+  /** The book currency: every stored amount (and custom split) is in it. */
+  currency: CurrencyCode;
   editRecordId?: string;
 }>();
 
@@ -450,7 +493,7 @@ const emit = defineEmits<{
   "update:modelValue": [value: boolean];
 }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const store = useTrackerStore();
 const today = getLocalDateString();
 
@@ -473,6 +516,27 @@ const defaultForm = () => ({
 });
 
 const form = ref(defaultForm());
+
+// Typed in any currency, booked in the book currency.
+const {
+  currency: inputCurrency,
+  rate: fxRate,
+  rateDate: fxRateDate,
+  source: fxSource,
+  loading: fxLoading,
+  isForeign,
+  ready: fxReady,
+  converted: fxConverted,
+  setManualRate,
+  reset: resetFx,
+  load: loadFx,
+  build: buildMoney,
+} = useFxInput({
+  target: computed(() => props.currency),
+  date: computed(() => form.value.date),
+  amount: computed(() => parseAmountExpression(form.value.amountStr) ?? 0),
+});
+
 const showKeyboard = ref(false);
 const showCategoryPicker = ref(false);
 const shouldSaveAsTemplate = ref(false);
@@ -502,9 +566,9 @@ const evaluateAmount = () => {
     try {
       const result = new Function(`return ${str}`)();
       if (isFinite(result) && result > 0) {
-        // Keep up to 2 decimals — flooring silently turned 10.99 into 10 and
-        // 0.5 into an unsaveable 0.
-        form.value.amountStr = String(Math.round(result * 100) / 100);
+        // Round to the input currency's precision — flooring silently turned
+        // 10.99 into 10 and 0.5 into an unsaveable 0.
+        form.value.amountStr = String(roundTo(result, inputCurrency.value));
       }
     } catch {
       // ignore
@@ -539,7 +603,9 @@ const customAmountValue = (id: string) => {
 const evaluateCustomAmount = (id: string) => {
   const amount = customAmountValue(id);
   if (amount !== null) {
-    form.value.splitCustomAmounts[id] = String(Math.round(amount * 100) / 100);
+    form.value.splitCustomAmounts[id] = String(
+      roundTo(amount, inputCurrency.value),
+    );
   }
 };
 
@@ -581,7 +647,7 @@ const autoPerPerson = computed(() => {
 });
 
 const isSplitValid = computed(() => {
-  if (!isValidAmount.value) return false;
+  if (!isValidAmount.value || !fxReady.value) return false;
   if (form.value.type !== "expense") return true;
   if (form.value.splitMode === "equal")
     return form.value.splitAmongIds.length > 0;
@@ -598,6 +664,8 @@ const isSplitValid = computed(() => {
 
 const saveButtonText = computed(() => {
   if (!isValidAmount.value) return t("recordSheet.validation.enterAmount");
+  if (fxLoading.value) return t("currency.loadingRate");
+  if (!fxReady.value) return t("currency.enterRate");
   if (form.value.type !== "expense") return t("common.save");
 
   if (form.value.splitMode === "equal") {
@@ -625,6 +693,7 @@ const applyTemplate = (templateId: string) => {
   form.value.categoryId = t.category;
   form.value.amountStr = t.amount !== null ? String(t.amount) : "";
   form.value.note = t.note || "";
+  resetFx(currencyOf(t.currency));
 
   if (t.amount === null) {
     showKeyboard.value = true;
@@ -656,10 +725,17 @@ watch(
           const cat = store.allCategories.find(
             (c) => c.name === r.category && c.type === r.type,
           );
+          // Edit what was typed, in the currency it was typed in: a foreign
+          // custom split keeps its typed per-member amounts on `original`.
+          const original = originalOf(r, props.currency);
+          const typedSplit =
+            original.currency === props.currency
+              ? r.splitCustomAmounts
+              : (original.splitCustomAmounts ?? r.splitCustomAmounts);
           // Restore custom amounts — pre-populate all members, then overlay saved values
           const customAmts: Record<string, string> = initCustomAmounts();
-          if (r.splitCustomAmounts) {
-            for (const [k, v] of Object.entries(r.splitCustomAmounts)) {
+          if (typedSplit) {
+            for (const [k, v] of Object.entries(typedSplit)) {
               customAmts[k] = String(v);
             }
           }
@@ -674,7 +750,7 @@ watch(
 
           form.value = {
             type: r.type,
-            amountStr: String(r.amount),
+            amountStr: String(original.amount),
             categoryId: cat?.id || r.category,
             paidById: validPaidById,
             splitAmongIds:
@@ -686,12 +762,24 @@ watch(
             date: r.date,
             note: r.note,
           };
+          if (original.currency === props.currency) {
+            resetFx(original.currency);
+          } else {
+            const booked = bookedOf(r, props.currency);
+            loadFx({
+              currency: original.currency,
+              rate: booked.rate,
+              rateDate: booked.rateDate,
+              source: booked.rateSource,
+            });
+          }
           return;
         }
       }
       const reset = defaultForm();
       reset.categoryId = expenseCats.value[0]?.id ?? "";
       form.value = reset;
+      resetFx();
       showKeyboard.value = true;
     } else {
       showKeyboard.value = false;
@@ -758,6 +846,7 @@ const handleSubmit = async () => {
   evaluateAmount();
   const amt = Number(form.value.amountStr);
   if (!amt || isNaN(amt) || amt <= 0) return;
+  if (!fxReady.value) return;
   const isExpense = form.value.type === "expense";
   if (
     isExpense &&
@@ -774,30 +863,38 @@ const handleSubmit = async () => {
 
   submitting.value = true;
   try {
-    // Build custom amounts map for storage
+    const money = buildMoney(amt);
+
+    // Build custom amounts map for storage (in the book currency)
     let splitCustomAmountsOut: Record<string, number> | undefined;
     if (isExpense && form.value.splitMode === "custom") {
-      splitCustomAmountsOut = {};
+      // 1. Shares in the typed currency: the remaining total is divided across
+      //    unfilled members so the shares sum EXACTLY to the amount (flooring
+      //    each share left a permanent unsettleable gap).
       const unfilled = props.members.filter((m) => isUnfilled(m.id));
-      // Distribute the remaining total across unfilled members in cents, giving
-      // the leftover cents to the first members so the shares sum EXACTLY to the
-      // remaining amount (flooring each share left a permanent unsettleable gap).
-      const totalCents = Math.round(Math.max(0, remainingAmount.value) * 100);
-      const n = unfilled.length;
-      const base = n > 0 ? Math.floor(totalCents / n) : 0;
-      let extra = n > 0 ? totalCents - base * n : 0;
-      const unfilledSet = new Set(unfilled.map((m) => m.id));
-      for (const m of props.members) {
-        if (unfilledSet.has(m.id)) {
-          let cents = base;
-          if (extra > 0) {
-            cents += 1;
-            extra--;
-          }
-          splitCustomAmountsOut[m.id] = cents / 100;
-        } else {
-          splitCustomAmountsOut[m.id] = customAmountValue(m.id) ?? 0;
-        }
+      const autoShares = splitEvenly(
+        Math.max(0, remainingAmount.value),
+        unfilled.length,
+        inputCurrency.value,
+      );
+      const typed: Record<string, number> = {};
+      props.members.forEach((m) => {
+        const ui = unfilled.indexOf(m);
+        typed[m.id] = ui >= 0 ? autoShares[ui] : (customAmountValue(m.id) ?? 0);
+      });
+      // 2. Carry them over to the book currency proportionally, so they still
+      //    sum exactly to the converted amount.
+      const ids = props.members.map((m) => m.id);
+      const booked = allocateProportionally(
+        money.amount,
+        ids.map((id) => typed[id]),
+        props.currency,
+      );
+      splitCustomAmountsOut = Object.fromEntries(
+        ids.map((id, i) => [id, booked[i]]),
+      );
+      if (money.original) {
+        money.original = { ...money.original, splitCustomAmounts: typed };
       }
     }
 
@@ -813,7 +910,7 @@ const handleSubmit = async () => {
 
     const data = {
       type: form.value.type,
-      amount: amt,
+      ...money,
       category: currentCategoryObj.value?.name || form.value.categoryId,
       date: form.value.date,
       note: form.value.note,
@@ -837,6 +934,7 @@ const handleSubmit = async () => {
           type: form.value.type,
           category: form.value.categoryId,
           amount: amt,
+          currency: inputCurrency.value,
           note: form.value.note,
         });
       }

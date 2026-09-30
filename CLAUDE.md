@@ -29,12 +29,12 @@ GIN_MODE=release go run main.go
 **Before declaring work done**: `npm run build` (typecheck + build) and
 `npm run test` must pass.
 
-**`npm run lint` caveat**: it prettier-checks a hardcoded allowlist of ~11 files,
-not the project, and three of those files already fail on `main`
-(`BookAddRecordSheet.vue`, `stores/personal.ts`,
-`tests/member-breakdown.test.ts`). Treat a failure there as pre-existing unless
-it names a file you touched. New/edited files should be prettier-clean:
-`npx prettier --write <file>`.
+**`npm run lint` caveat**: it prettier-checks a hardcoded allowlist of ~11 files
+(plus `tests/*.ts`), not the project. The allowlist currently passes, so a
+failure there is yours. Files outside it (most components, `books.ts`,
+`tracker.ts`) are not prettier-formatted — do not reformat them wholesale in an
+unrelated change; the diff will bury the real edit. New files should be
+prettier-clean: `npx prettier --write <file>`.
 
 ---
 
@@ -66,7 +66,9 @@ import fails the build, not just the linter.
 ```
 src/
 ├── main.ts                 # app bootstrap: pinia → router → i18n, analytics inject
-├── App.vue                 # theme application (incl. live 'system' listener), toasts
+├── App.vue                 # theme application (incl. live 'system' listener), toasts,
+│                           #   global keyboard shortcuts + shortcut help sheet
+├── style.css               # Tailwind entry, `.theme-sheep` overrides, @layer components
 ├── router/index.ts         # routes + guard: awaits store.init(), gates on isProfileSet
 ├── stores/
 │   ├── tracker.ts          # THE store — owns all state refs, composes the modules below
@@ -75,6 +77,7 @@ src/
 │   ├── categories.ts       # custom category CRUD + allCategories
 │   ├── templates.ts        # record template CRUD
 │   ├── user.ts             # profile name, theme, animations
+│   ├── base-currency.ts    # base currency + re-expressing personal records (§5a)
 │   ├── cloud-sync.ts       # UUID backup/restore
 │   ├── storage.ts          # IndexedDB get/put + STORAGE_KEYS
 │   ├── constants.ts        # defaultCategories (ids "e1".."e8", "i1".."i4")
@@ -83,18 +86,33 @@ src/
 │   ├── Base*.vue           # BaseBottomSheet, BaseButton — reusable primitives
 │   ├── RecordSheetLayout   # dual-layer layout for the record/template sheets
 │   ├── CategoryPickerSheet # category chooser, stacked above a record sheet
+│   ├── CurrencySelect FxRateRow RecordAmount   # currency picker, rate row, record amount
 │   ├── books/ home/ statistics/   # feature-scoped components
 ├── composables/
 │   ├── useToast.ts         # toast queue
-│   └── useEscapeKey.ts     # shared Escape stack — closes only the TOP overlay
+│   ├── useEscapeKey.ts     # shared Escape stack — closes only the TOP overlay
+│   ├── useFxInput.ts       # record-form currency + rate state (fetch, pin, build)
+│   └── usePrimaryAction.ts # Ctrl/⌘+Enter registry — highest active priority wins
 ├── utils/
 │   ├── api.ts              # axios instance + every endpoint call
-│   ├── category.ts date.ts memberBreakdown.ts
-│   └── piggyImport.ts everydayImport.ts   # third-party backup parsers
+│   ├── category.ts         # colorMap, category icon/colour lookup, date formatting
+│   ├── date.ts memberBreakdown.ts
+│   ├── currency.ts         # currency table, formatMoney, rebaseRecord, splitEvenly…
+│   ├── fxRates.ts          # daily rates from the network, cached in IndexedDB
+│   ├── settlement.ts       # calcMemberStats / calcSettlements (book currency)
+│   ├── amountExpression.ts # "500+250*2", "1,000", "20%" → number (custom split input)
+│   └── piggyImport.ts everydayImport.ts   # 小豬記帳本 .txt / 天天記帳 .csv parsers
 ├── views/                  # Landing, Login, Home, Books, Statistics, Profile, legal
 └── locales/                # en.ts, zh-TW.ts, ja.ts
 tests/                      # *.test.ts, mirrors the unit under test
+docs/superpowers/           # past feature specs/plans (historical, not maintained)
 ```
+
+Routes: `/` Landing, `/login`, `/privacy`, `/terms` are public; `/dashboard`
+(Home, personal records), `/books`, `/statistics`, `/profile` require
+`isProfileSet` (a non-empty name — "login" just sets the name). `Books.vue`
+switches between `BookList` and `BookDetail` in-page; the selected book is not in
+the URL.
 
 ---
 
@@ -121,19 +139,42 @@ Rules:
   The router guard awaits it before evaluating any rule.
 - Adding a domain? New `setup*Actions` module + refs in `tracker.ts` + a
   `STORAGE_KEYS` entry + include it in `save()`/`init()`.
+- Exceptions to "call `save()`": `categories.ts` and `user.ts` (`setTheme`,
+  `setAnimations`) write their own keys via `saveToStorage` directly.
+  `DELETED_CATEGORIES` is *only* written by `categories.ts` — it is not in
+  `save()`.
 
 ### Data model (key fields)
 
 ```ts
-Book            { id, name, members[], createdAt, shareCode?, isSynced? }
+Book            { id, name, members[], createdAt, currency?, shareCode?, isSynced? }
 Member          { id, name, userId? }        // userId = the owner's PUBLIC memberId
 RecordItem      { id, bookId, type, amount, category, date, note,
-                  paidById, splitAmongIds[], splitCustomAmounts?, isSynced? }
-PersonalRecord  { id, type, amount, category, date, note, sourceBookId?, isSynced? }
+                  paidById, splitAmongIds[], splitCustomAmounts?, isSynced?,
+                  ...money }
+PersonalRecord  { id, type, amount, category, date, note, sourceBookId?, isSynced?,
+                  ...money }
+money           { amountCurrency?, original?, booked?, fx? }   // see §5a
 Category        { id, name, type, icon, color, isDefault, isSynced? }
-RecordTemplate  { id, name, type, amount, category, note, isSynced? }
-UserProfile     { id, memberId, name, theme, animations }
+RecordTemplate  { id, name, type, amount: number|null, currency?, category, note, isSynced? }
+UserProfile     { id, memberId, name, theme, animations, baseCurrency? }
 ```
+
+`splitAmongIds` may contain the literal `"all"` (legacy records) meaning every
+current member; every consumer expands it. `paidById` is `""` for income.
+
+**`category` is not the same kind of value everywhere:**
+
+- `RecordItem.category` / `PersonalRecord.category` store the category **name**
+  (for default categories, the zh-TW name in `constants.ts`, e.g. `"飲食"`).
+  The sheets resolve the picked id to `cat.name` on submit.
+- `RecordTemplate.category` stores the category **id**. `Home.vue`'s one-tap
+  template path converts id → name before `addPersonalRecord`.
+- Lookups therefore match by name (`utils/category.ts`, Statistics,
+  settlement) and some also accept an id (`RecordItem.vue`). Renaming a custom
+  category — or a record whose category was deleted — falls back to the
+  `more_horiz` icon and the raw string. Keep new code consistent with the field
+  it touches; don't "fix" one side without migrating stored data.
 
 **`UserProfile.id` vs `memberId` — do not conflate them.** `id` is the secret
 cloud-backup key (a capability token; it must never leave the device except to
@@ -141,10 +182,21 @@ the backup endpoint). `memberId` is the public identity embedded in shared-book
 member lists. They are deliberately distinct so joining a shared book cannot
 leak the backup key.
 
-Money is stored as a `number` in major units with 2 decimals. Never floor or
-truncate it. Split maths is done in **cents** (integers) with the remainder
-distributed, so settlements sum to exactly zero — see `memberStats` and
-`calcMemberCategoryBreakdown`.
+Money is stored as a `number` in major units, rounded to its currency's
+precision (`CURRENCIES[code].decimals`: 0 for TWD/JPY/VND/KRW, 2 for
+USD/THB/CNY/EUR/GBP;
+older TWD records may still carry 2 decimals). Never floor or truncate it.
+Settlement maths (`utils/settlement.ts`) accumulates in integer **cents**;
+equal splits are divided in the currency's minor unit via `splitEvenly`
+(remainder to the first members), so nets sum to exactly zero.
+`calcSettlements` greedily matches creditors/debtors with a 0.005 epsilon.
+`calcMemberCategoryBreakdown` is display-only: it divides in floats and rounds
+each category to the currency's precision, so it need not sum exactly to `owed`.
+
+Amount inputs accept arithmetic (`new Function` behind a
+`/^[\d+\-*/. ()]+$/` whitelist — keep the whitelist if you touch it). Custom
+split inputs use `parseAmountExpression`, which also accepts `1,000` and `20%`
+of the record total.
 
 ---
 
@@ -164,6 +216,17 @@ local backup key.
 These two calls use a 60s timeout, not the 15s axios default: the payload
 carries every record the user owns, and a cold serverless start pays for the DB
 connect and migration check first.
+
+The payload also carries `profile: { baseCurrency }`; restore adopts it (a
+backup without one is all-TWD, so restore sets TWD).
+
+**The backup is still partly lossy.** The backend's typed structs only carry the
+columns it stores. Persisted since migration 000003: the currency fields and
+`splitCustomAmounts`. Still dropped: `Book.shareCode` (a restored book is no
+longer linked to its shared space) and `deletedCategoryIds` (hidden default
+categories reappear). Adding a field to a synced entity means a backend column
++ migration + both handlers, not just a TS type. `original`/`booked`/`fx` are
+opaque JSONB to the backend, so new keys *inside* them round-trip for free.
 
 ### Shared books — automatic, merge
 
@@ -188,6 +251,81 @@ them away:
    a deletion still in flight.
 2. Local unsynced records win over the cloud copy of the same id, and tombstoned
    ids are filtered out of the incoming set.
+
+Pulls fire on `currentBookId` change (watcher, `immediate`), on `selectBook`,
+when `BookDetail` mounts, and when the add-record or settlement sheet opens.
+Pull/push errors are only logged — there is no user-visible sync failure state.
+
+`joinBookByCode` enrolls the joiner: it matches an existing member by
+`userId === memberId` (or the legacy backup `id`), else claims an unlinked
+member with the same name (case-insensitive), else appends a new member — then
+pushes **immediately and awaits it** (not debounced) so the next pull cannot
+drop the enrollment. Joining a book id that already exists locally asks to
+overwrite it.
+
+`ImportFromBookSheet` temporarily switches `currentBookId` to read
+`memberStats` for another book, then restores it. `importMyShareFromBook`
+imports a member's `owed` total once per book (keyed by `sourceBookId`).
+
+### 5a. Currencies
+
+Nine currencies (`CurrencyCode` in `types.ts`, table in `utils/currency.ts`).
+Symbols are our own (`NT$ ¥ US$ ฿ ₫ CN¥ € ₩ £`), not Intl's, which disagree by
+locale. Always render money with `formatMoney(amount, currency, locale)` —
+never `toLocaleString()` or a hardcoded `NT$`.
+
+**Where amounts live.** `amount` is always in `amountCurrency` (missing = TWD,
+the only currency before this feature — `currencyOf`/`amountCurrencyOf` apply
+that default). Book records are in the book's `currency`; personal records in
+`userProfile.baseCurrency`. Every sum reads `amount` — so for personal records
+use `sumInCurrency(records, type, baseCurrency)`, which skips records whose
+`amountCurrency` differs ("pending", see below).
+
+**Anchors.** A record typed in another currency also stores:
+
+- `original` `{amount, currency}` — what was typed (+ `splitCustomAmounts` as
+  typed, for foreign custom splits, so editing shows the typed values);
+- `booked` `{amount, currency, rate, rateDate, rateSource}` — the converted
+  value the user confirmed; never recomputed (keeps a manual card rate);
+- `fx` `{rate, rateDate, source}` — how the current `amount` was derived (shown
+  by `RecordAmount`'s ⓘ).
+
+Records typed in their target currency store none of these; `originalOf` /
+`bookedOf` synthesise them. Build these fields only with `buildMoneyFields`.
+
+**Changing the base currency** (`changeBaseCurrency`, Profile) re-expresses
+personal records with `rebaseRecord`, which works **only from the anchors, never
+from the current `amount`**: target = booked currency → booked amount; target =
+original currency → original amount; otherwise original × that day's rate. So
+switching back is exact and repeated switching never drifts. Don't "simplify"
+this into converting `amount`. Rates are prefetched first, then the *current*
+records are mapped in one pass and saved once. A record whose rate is
+unavailable keeps its old currency → it is pending: shown with a badge,
+excluded from totals, counted by `pendingConversionCount` (Home banner →
+`convertPendingRecords`). Book records are never rebased; a book's currency is
+locked once it has records (`updateBook`, `CreateBookModal`).
+
+**Rates** (`utils/fxRates.ts`): `@fawazahmed0/currency-api` via jsDelivr
+(pages.dev fallback) — free, no key, CORS, one file per day with all
+currencies; ECB sources lack TWD/VND. Each day is cached in IndexedDB
+(`STORAGE_KEYS.FX_RATES`, never synced) as units per 1 USD, so any pair works
+offline later. `getRate` = cached day → fetch → nearest cached day (`source:
+"cached"`). `getCachedRate` is exact-day, cache-only (use it after
+`prefetchRates` for deterministic batch conversion). Dates before
+`FIRST_RATE_DATE` (2024-03-02, the API's first file) use that day. Today's file
+may not exist yet → "latest".
+
+**Forms.** Record sheets use `useFxInput({target, date, amount})` +
+`CurrencySelect` + `FxRateRow`. A foreign record cannot be saved without a rate
+(auto or typed). A typed rate, or the booked rate of the record being edited,
+is pinned until the currency/date changes. Custom splits are entered in the
+typed currency, then carried to the book currency with
+`allocateProportionally`, so they still sum exactly. Importing a book share
+into personal records converts it once at today's rate.
+
+**Shared books** carry `book.currency` in the JSONB payload; the backend merges
+book fields shallowly so older clients that omit `currency` cannot erase it,
+and `pullSharedBook` adopts it.
 
 ### Pending-sync + tombstones
 
@@ -214,6 +352,17 @@ locally.
 - **Escape**: `useEscapeKey(isActiveRef, close)`. All dialogs share one listener
   and a stack so a press closes only the top-most one. Register, never add your
   own `keydown` listener.
+- **Keyboard shortcuts** live in `App.vue` (one window listener): Ctrl/⌘+Enter
+  runs the primary action, Alt+Shift+1–4 switch tabs, Ctrl/⌘+/ toggles the help
+  sheet. They are ignored during IME composition (`isComposing` / keyCode 229)
+  and before a profile exists; tab switching is ignored in inputs and while a
+  modal is open. A new shortcut must also be listed in the `shortcuts` array
+  and the `shortcuts.*` i18n keys.
+- **Primary action**: `usePrimaryAction(isActiveRef, run, priority)`. Pages
+  register at priority 0 ("add"), forms/sheets at 1 ("submit"). When an
+  `aria-modal` dialog is open only priority ≥ 1 runs, so a sheet without a
+  registered action swallows the shortcut instead of triggering the page's.
+  Any new form sheet should register at priority 1.
 - **Category selection** goes through `CategoryPickerSheet`, opened from a
   tappable field row. Do not put a selection grid in `RecordSheetLayout`'s dim
   backdrop — the sheet grows to 90vh and leaves it a sliver, and a mis-tap there
@@ -221,8 +370,24 @@ locally.
 - **Animations** must respect `store.userProfile.animations` (transitions are
   named conditionally, e.g. `:name="animations ? 'fade' : ''"`).
 - **Dark mode**: every colour needs a `dark:` counterpart. Themes are `light`,
-  `dark`, `system` (tracked live via `matchMedia`) and `sheep`; never override a
-  user's explicit choice during migration.
+  `dark`, `system` (tracked live via `matchMedia`) and `sheep` (the default);
+  never override a user's explicit choice during migration. The theme is
+  mirrored to `localStorage['account-tracker-theme']` so the inline script in
+  `index.html` can apply it before Vue mounts (no flash).
+- **Sheep theme** is not a Tailwind variant: `style.css` re-colours specific
+  utility classes under `.theme-sheep` with `!important` (`.bg-blue-600`,
+  `.text-violet-600`, `.from-indigo-500`, …). A colour class not in that list
+  keeps its stock colour in the sheep theme — check `style.css` when
+  introducing a new accent colour.
+- **Shared classes** in `style.css` `@layer components`: `page-container`,
+  `section-title`, `hint-text`, `empty-state`, `record-card`, `record-icon`,
+  `input-field`, `label-text`, `btn-primary`/`btn-secondary`/`btn-ghost`,
+  `btn-delete`, `tag-pill`, `header-chip`. Prefer them over re-spelling the
+  utilities.
+- **Older overlays** (`CreateBookModal`, `JoinBookModal`, `ShareBookModal`,
+  `MonthSelector`'s picker) hand-roll `Teleport` + `role="dialog"` instead of
+  using `BaseBottomSheet`; they still register with `useEscapeKey`. Confirms and
+  prompts use native `confirm()` / `prompt()`.
 - **Safe areas**: bottom-anchored UI uses `env(safe-area-inset-bottom)` (see the
   `pb-safe` pattern in the sheets and `BottomNav`).
 - Prefer semantic interactive elements: a tappable row is a `<button
@@ -263,8 +428,16 @@ mount(Component, {
 ```
 
 Assert behaviour and emitted events, not markup detail. Pure logic
-(`utils/date.ts`, `utils/memberBreakdown.ts`) is tested directly — prefer
-extracting logic into `utils/` over testing it through a component.
+(`utils/date.ts`, `utils/memberBreakdown.ts`, `utils/amountExpression.ts`,
+`usePrimaryAction`) is tested directly — prefer extracting logic into `utils/`
+over testing it through a component. Components that call `useI18n()` also need
+`vi.mock("vue-i18n", …)`; `Teleport`ed components need `stubs: { teleport: true }`.
+
+Settlement (`utils/settlement.ts`), currency maths (`currency.ts`, including
+the TWD→JPY→TWD round trip), rates (`fx-rates.test.ts`, `fetch` and storage
+mocked) and `base-currency.ts` are covered. Still untested: `books.ts`
+merge/pull and `cloud-sync.ts`. When changing sync logic, add a test for the
+invariant you touch rather than relying on manual checks.
 
 ---
 
@@ -286,8 +459,9 @@ PORT=8080
 ```
 
 The backend CORS allowlist is explicit and includes the Capacitor native
-origins; a new frontend origin will not work until it is added there.
-`GET /ping` reports `db` status and the deployed `commit`.
+origins; a new frontend origin will not work until it is added there (or to
+`CORS_ORIGINS`). `GET /ping` reports `db` status and the deployed `commit`.
+The backend has its own `CLAUDE.md`; read it before changing a payload shape.
 
 ---
 
@@ -305,3 +479,9 @@ origins; a new frontend origin will not work until it is added there.
 - The default categories are the exception: their ids are `"e1"`…`"i4"` and they
   live only in `constants.ts`. They are never pushed to the backend.
 - Guard double submits: the sheets use a `submitting` flag.
+- `README.md` is stale (mentions Google login, 6-digit codes, two locales).
+  Trust this file and the code over it.
+- `.npmrc` sets `legacy-peer-deps=true` for `@vercel/analytics`'s vue-router@4
+  peer; removing it breaks `npm ci` on Vercel.
+- Capacitor: `appId` `id.account.tracker`, `webDir: dist`. Only `ios/` is
+  checked in; run `npm run build && npx cap sync` before opening Xcode.

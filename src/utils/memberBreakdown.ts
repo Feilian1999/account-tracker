@@ -9,12 +9,15 @@ export interface MemberCategoryBreakdown {
 /**
  * Computes per-category expense breakdown for a given member.
  * @param allMemberIds - All member IDs in the book; required when any record uses splitAmongIds: ["all"]
+ * @param decimals - Display precision of the book currency (0 for TWD/JPY/VND)
  */
 export function calcMemberCategoryBreakdown(
   records: RecordItem[],
   allMemberIds: string[],
-  memberId: string
+  memberId: string,
+  decimals = 0,
 ): MemberCategoryBreakdown[] {
+  const factor = 10 ** decimals;
   const categoryTotals = new Map<string, { amount: number; count: number }>();
 
   for (const record of records) {
@@ -31,7 +34,10 @@ export function calcMemberCategoryBreakdown(
         ? record.splitCustomAmounts[memberId]
         : record.amount / splitIds.length;
 
-    const entry = categoryTotals.get(record.category) ?? { amount: 0, count: 0 };
+    const entry = categoryTotals.get(record.category) ?? {
+      amount: 0,
+      count: 0,
+    };
     entry.amount += share;
     entry.count += 1;
     categoryTotals.set(record.category, entry);
@@ -40,8 +46,8 @@ export function calcMemberCategoryBreakdown(
   return [...categoryTotals.entries()]
     .map(([category, data]) => ({
       category,
-      // round to nearest whole unit for display
-      amount: Math.round(data.amount),
+      // round to the currency's minor unit for display
+      amount: Math.round(data.amount * factor) / factor,
       count: data.count,
     }))
     .filter((item) => item.amount !== 0)

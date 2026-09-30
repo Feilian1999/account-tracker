@@ -103,8 +103,8 @@
           class="w-16 shrink-0 text-sm font-semibold text-gray-600 dark:text-gray-400"
           >{{ $t("common.amount") }}</label
         >
-        <div class="flex flex-1 items-center justify-end gap-1">
-          <span class="text-sm font-semibold text-gray-400">NT$</span>
+        <div class="flex flex-1 items-center justify-end gap-2">
+          <CurrencySelect v-model="inputCurrency" compact />
           <input
             ref="amountInput"
             v-model="form.amountStr"
@@ -117,6 +117,18 @@
           />
         </div>
       </div>
+
+      <FxRateRow
+        v-if="isForeign"
+        :currency="inputCurrency"
+        :target="targetCurrency"
+        :rate="fxRate"
+        :rateDate="fxRateDate"
+        :source="fxSource"
+        :loading="fxLoading"
+        :converted="fxConverted"
+        @update:rate="setManualRate"
+      />
 
       <!-- 3. Category — opens the picker; kept outside the keyboard's v-show so
            it stays reachable while the amount is being typed. -->
@@ -163,6 +175,7 @@
       <CalculatorKeyboard
         v-if="showKeyboard"
         v-model="form.amountStr"
+        :decimals="decimalsOf(inputCurrency)"
         @submit="showKeyboard = false"
         class="mt-1 mb-2 rounded-2xl bg-gray-50 p-2 dark:bg-gray-800/50"
       />
@@ -213,8 +226,8 @@
           </button>
           <BaseButton
             @click="submit"
-            :disabled="!isValidAmount"
-            :variant="isValidAmount ? 'primary' : 'secondary'"
+            :disabled="!canSave"
+            :variant="canSave ? 'primary' : 'secondary'"
             class="flex-1 !py-3 shadow-md transition-all sm:text-sm"
           >
             {{ saveButtonText }}
@@ -246,6 +259,18 @@ import RecordSheetLayout from "../RecordSheetLayout.vue";
 import BaseButton from "../BaseButton.vue";
 import { getLocalDateString } from "../../utils/date";
 import { usePrimaryAction } from "../../composables/usePrimaryAction";
+import { useFxInput } from "../../composables/useFxInput";
+import CurrencySelect from "../CurrencySelect.vue";
+import FxRateRow from "../FxRateRow.vue";
+import {
+  amountCurrencyOf,
+  bookedOf,
+  currencyOf,
+  decimalsOf,
+  originalOf,
+  roundTo,
+} from "../../utils/currency";
+import { parseAmountExpression } from "../../utils/amountExpression";
 
 const props = defineProps<{
   modelValue: boolean;
@@ -294,6 +319,27 @@ const shouldSaveAsTemplate = ref(false);
 const submitting = ref(false);
 const amountInput = ref<HTMLInputElement>();
 
+// Personal records are booked in the base currency, typed in any currency.
+const targetCurrency = computed(() => store.baseCurrency);
+const {
+  currency: inputCurrency,
+  rate: fxRate,
+  rateDate: fxRateDate,
+  source: fxSource,
+  loading: fxLoading,
+  isForeign,
+  ready: fxReady,
+  converted: fxConverted,
+  setManualRate,
+  reset: resetFx,
+  load: loadFx,
+  build: buildMoney,
+} = useFxInput({
+  target: targetCurrency,
+  date: computed(() => form.value.date),
+  amount: computed(() => parseAmountExpression(form.value.amountStr) ?? 0),
+});
+
 usePrimaryAction(toRef(props, "modelValue"), () => submit(), 1);
 
 watch(
@@ -311,8 +357,8 @@ const evaluateAmount = () => {
     try {
       const result = new Function(`return ${str}`)();
       if (isFinite(result) && result > 0) {
-        // Keep up to 2 decimals (flooring dropped cents and made <1 unsaveable).
-        form.value.amountStr = String(Math.round(result * 100) / 100);
+        // Round to the input currency's precision (flooring made <1 unsaveable).
+        form.value.amountStr = String(roundTo(result, inputCurrency.value));
       }
     } catch {
       // ignore
@@ -330,8 +376,12 @@ const isValidAmount = computed(() => {
   return !isNaN(v) && v > 0;
 });
 
+const canSave = computed(() => isValidAmount.value && fxReady.value);
+
 const saveButtonText = computed(() => {
   if (!isValidAmount.value) return t("recordSheet.validation.enterAmount");
+  if (fxLoading.value) return t("currency.loadingRate");
+  if (!fxReady.value) return t("currency.enterRate");
   return t("common.save");
 });
 
@@ -343,6 +393,7 @@ const applyTemplate = (templateId: string) => {
   form.value.categoryId = t.category;
   form.value.amountStr = t.amount !== null ? String(t.amount) : "";
   form.value.note = t.note || "";
+  resetFx(currencyOf(t.currency));
 
   if (t.amount === null) {
     showKeyboard.value = true;
@@ -387,13 +438,30 @@ watch(
           const cat = store.allCategories.find(
             (c) => c.name === r.category && c.type === r.type,
           );
+          // Edit what was typed, in the currency it was typed in.
+          const original = originalOf(r);
           form.value = {
             type: r.type,
-            amountStr: String(r.amount),
+            amountStr: String(original.amount),
             categoryId: cat?.id || r.category,
             date: r.date,
             note: r.note,
           };
+          const booked = bookedOf(r);
+          if (original.currency === targetCurrency.value) {
+            resetFx(original.currency);
+          } else if (booked.currency === targetCurrency.value) {
+            loadFx({
+              currency: original.currency,
+              rate: booked.rate,
+              rateDate: booked.rateDate,
+              source: booked.rateSource,
+            });
+          } else if (r.fx && amountCurrencyOf(r) === targetCurrency.value) {
+            loadFx({ currency: original.currency, ...r.fx });
+          } else {
+            resetFx(original.currency);
+          }
           return;
         }
       }
@@ -407,6 +475,7 @@ watch(
       }
 
       form.value = defaultForm();
+      resetFx();
       showKeyboard.value = true;
     } else {
       showKeyboard.value = false;
@@ -420,6 +489,7 @@ const submit = async () => {
   evaluateAmount();
   const amt = Number(form.value.amountStr);
   if (!amt || isNaN(amt) || amt <= 0) return;
+  if (!fxReady.value) return;
   // Guard against an empty/cleared date, which would crash the Home view's
   // date grouping (parseLocalDateString throws on "").
   if (!form.value.date) return;
@@ -428,7 +498,7 @@ const submit = async () => {
   try {
     const data = {
       type: form.value.type,
-      amount: amt,
+      ...buildMoney(amt),
       category: currentCategoryObj.value?.name || form.value.categoryId,
       date: form.value.date,
       note: form.value.note,
@@ -449,6 +519,7 @@ const submit = async () => {
           type: form.value.type,
           category: form.value.categoryId,
           amount: amt,
+          currency: inputCurrency.value,
           note: form.value.note,
         });
       }

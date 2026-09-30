@@ -40,7 +40,7 @@
             </div>
             <div class="mt-1 flex items-center gap-2 text-sm text-gray-500">
               <div class="flex items-center gap-1.5 font-bold tabular-nums">
-                <span v-if="tpl.amount">{{ Math.round(tpl.amount).toLocaleString() }}</span>
+                <span v-if="tpl.amount">{{ formatMoney(tpl.amount, currencyOf(tpl.currency), locale) }}</span>
                 <span v-else class="italic opacity-60 text-[11px] font-normal">{{ $t("templates.variableAmount") }}</span>
               </div>
               <span v-if="tpl.note" class="max-w-[120px] truncate text-xs opacity-60 before:mr-1.5 before:content-['•']">{{ tpl.note }}</span>
@@ -129,8 +129,8 @@
       <div class="flex items-center gap-3 border-b border-gray-100 dark:border-gray-800 pb-2">
         <span class="material-symbols-outlined text-gray-400 text-xl">attach_money</span>
         <label class="text-sm font-semibold text-gray-600 dark:text-gray-400 w-16 shrink-0">{{ $t("templates.amountOptional") }}</label>
-        <div class="flex-1 flex items-center justify-end gap-1">
-          <span class="text-gray-400 font-semibold text-sm">NT$</span>
+        <div class="flex-1 flex items-center justify-end gap-2">
+          <CurrencySelect v-model="newForm.currency" compact />
           <input
             v-model="amountStr"
             type="number"
@@ -190,13 +190,16 @@ import BaseBottomSheet from "./BaseBottomSheet.vue";
 import CategoryPickerSheet from "./CategoryPickerSheet.vue";
 import RecordSheetLayout from "./RecordSheetLayout.vue";
 import CloseButton from "./CloseButton.vue";
+import CurrencySelect from "./CurrencySelect.vue";
+import type { CurrencyCode } from "../stores/types";
+import { currencyOf, formatMoney, roundTo } from "../utils/currency";
 
 const store = useTrackerStore();
 defineProps({
   modelValue: Boolean,
 });
 const emit = defineEmits(["update:modelValue"]);
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const isCreating = ref(false);
 const editingId = ref<string | null>(null);
@@ -208,6 +211,7 @@ const newForm = ref({
   name: "",
   category: "",
   note: "",
+  currency: "TWD" as CurrencyCode,
 });
 
 const availableCategories = computed(() =>
@@ -237,7 +241,7 @@ const deleteTemplate = async (id: string, name: string) => {
 
 const openCreate = () => {
   editingId.value = null;
-  newForm.value = { type: "expense", name: "", category: "", note: "" };
+  newForm.value = { type: "expense", name: "", category: "", note: "", currency: store.baseCurrency };
   amountStr.value = "";
   resetCategory();
   isCreating.value = true;
@@ -245,7 +249,13 @@ const openCreate = () => {
 
 const openEdit = (tpl: RecordTemplate) => {
   editingId.value = tpl.id;
-  newForm.value = { type: tpl.type, name: tpl.name, category: tpl.category, note: tpl.note };
+  newForm.value = {
+    type: tpl.type,
+    name: tpl.name,
+    category: tpl.category,
+    note: tpl.note,
+    currency: currencyOf(tpl.currency),
+  };
   amountStr.value = tpl.amount !== null ? String(tpl.amount) : "";
   isCreating.value = true;
 };
@@ -277,7 +287,11 @@ const saveTemplate = async () => {
     name: newForm.value.name.trim(),
     type: newForm.value.type,
     category: newForm.value.category,
-    amount: (numAmount !== null && !isNaN(numAmount) && numAmount > 0) ? numAmount : null,
+    amount:
+      numAmount !== null && !isNaN(numAmount) && numAmount > 0
+        ? roundTo(numAmount, newForm.value.currency)
+        : null,
+    currency: newForm.value.currency,
     note: newForm.value.note.trim(),
   };
 

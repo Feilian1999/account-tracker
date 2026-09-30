@@ -40,7 +40,7 @@
                 activeTab === 'expense' ? 'text-red-500' : 'text-green-500',
               ]"
             >
-              {{ item.total.toLocaleString() }}
+              {{ formatMoney(item.total, currency, locale) }}
             </p>
             <p class="hint-text mt-0.5">{{ item.percentage }}%</p>
           </div>
@@ -60,7 +60,7 @@
       <div class="flex items-center justify-between rounded-2xl bg-gray-100 p-4 font-bold dark:bg-gray-800">
         <span class="text-gray-600 dark:text-gray-300">{{ $t("statistics.total") }}</span>
         <span :class="activeTab === 'expense' ? 'text-red-500' : 'text-green-500'">
-          {{ total.toLocaleString() }}
+          {{ formatMoney(total, currency, locale) }}
         </span>
       </div>
     </div>
@@ -68,7 +68,10 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import CategoryIcon from "../CategoryIcon.vue";
+import type { CurrencyCode } from "../../stores/types";
+import { formatMoney } from "../../utils/currency";
 
 export interface CategoryBreakdownItem {
   categoryName: string;
@@ -87,5 +90,8 @@ defineProps<{
   data: CategoryBreakdownItem[];
   total: number;
   activeTab: 'expense' | 'income';
+  currency: CurrencyCode;
 }>();
+
+const { locale } = useI18n();
 </script>

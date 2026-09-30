@@ -90,4 +90,6 @@ export const STORAGE_KEYS = {
   PENDING_DELETE_CUSTOM_CATEGORIES: "tracker_pending_delete_custom_categories",
   PENDING_DELETE_TEMPLATES: "tracker_pending_delete_templates",
   PENDING_DELETE_MEMBERS: "tracker_pending_delete_members",
+  // Exchange-rate cache (utils/fxRates.ts), not domain state: never synced
+  FX_RATES: "tracker_fx_rates",
 } as const;

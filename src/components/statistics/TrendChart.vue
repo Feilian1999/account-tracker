@@ -54,7 +54,7 @@
                     marginBottom: '2px' 
                   }"
                 >
-                  {{ item.value.toLocaleString() }}
+                  {{ formatMoney(item.value, currency, locale) }}
                 </div>
               </div>
 
@@ -75,6 +75,10 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
+import type { CurrencyCode } from "../../stores/types";
+import { formatMoney } from "../../utils/currency";
+
 export interface TrendItem {
   key: string;
   shortLabel: string;
@@ -87,5 +91,8 @@ defineProps<{
   data: TrendItem[];
   maxVal: number;
   activeTab: 'expense' | 'income';
+  currency: CurrencyCode;
 }>();
+
+const { locale } = useI18n();
 </script>

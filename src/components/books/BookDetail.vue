@@ -30,6 +30,7 @@
           </div>
           <h1 class="flex items-center gap-2 text-lg font-bold text-white">
             <span class="truncate">{{ book.name }}</span>
+            <span class="shrink-0 rounded-md bg-white/20 px-1.5 py-0.5 text-[10px] font-bold">{{ bookCurrency }}</span>
             <span v-if="book.shareCode" class="material-symbols-outlined shrink-0 text-sm opacity-60" :title="$t('books.share.title')" aria-hidden="true">cloud_done</span>
           </h1>
         </div>
@@ -77,6 +78,7 @@
 
       <div class="mt-4">
         <SummaryBar
+          :currency="bookCurrency"
           :totalExpense="filteredBookExpense"
           :totalIncome="filteredBookIncome"
           :balance="filteredBookBalance"
@@ -148,16 +150,16 @@
                   </button>
 
                   <div class="flex items-center gap-2">
-                    <p
-                      :class="[
-                        'max-w-[120px] truncate text-right text-lg font-bold',
+                    <RecordAmount
+                      :record="record"
+                      :expectedCurrency="bookCurrency"
+                      :amountClass="[
+                        'text-lg',
                         record.type === 'expense'
                           ? 'text-gray-800 dark:text-gray-100'
                           : 'text-green-600 dark:text-green-400',
-                      ]"
-                    >
-                      {{ record.type === "expense" ? "-" : "+" }}{{ record.amount.toLocaleString() }}
-                    </p>
+                      ].join(' ')"
+                    />
                     <button
                       type="button"
                       class="btn-delete ml-1 shrink-0"
@@ -216,6 +218,8 @@ import CategoryIcon from "../CategoryIcon.vue";
 import DateFilterBar from "../DateFilterBar.vue";
 import DraggableFab from "../DraggableFab.vue";
 import SummaryBar from "../SummaryBar.vue";
+import RecordAmount from "../RecordAmount.vue";
+import { currencyOf } from "../../utils/currency";
 import { useTrackerStore } from "../../stores/tracker";
 import { formatDate, getCategoryBg, getCategoryIcon } from "../../utils/category";
 
@@ -236,6 +240,7 @@ const store = useTrackerStore();
 const { t, te } = useI18n();
 
 const book = computed(() => store.books.find((candidate) => candidate.id === props.bookId));
+const bookCurrency = computed(() => currencyOf(book.value?.currency));
 
 const isPulling = ref(false);
 const initPull = async () => {

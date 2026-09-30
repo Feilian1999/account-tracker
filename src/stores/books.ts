@@ -1,8 +1,10 @@
 import type { Ref } from "vue";
 import { computed, watch } from "vue";
-import type { Book, RecordItem, Member, Settlement, UserProfile, SharedBookPayload } from "./types";
+import type { Book, CurrencyCode, RecordItem, Member, Settlement, UserProfile, SharedBookPayload } from "./types";
 import { shareBookToCloud, fetchSharedBook, updateSharedBook } from "../utils/api";
 import { calcMemberCategoryBreakdown, type MemberCategoryBreakdown } from "../utils/memberBreakdown";
+import { calcMemberStats, calcSettlements } from "../utils/settlement";
+import { currencyOf, decimalsOf } from "../utils/currency";
 import { i18n } from "../i18n";
 
 // ---- Debounce helper (keyed by the first argument) ----
@@ -19,6 +21,9 @@ function debouncePerKey(fn: (key: string) => any, ms: number): (key: string) => 
     }, ms));
   };
 }
+
+const bookSignature = (book: Book) =>
+  [book.name, book.currency ?? "", book.members.map((m) => m.id).join(",")].join("|");
 
 /**
  * Book CRUD, settlement, and shared-book sync actions.
@@ -41,6 +46,9 @@ export function setupBookActions(
   const currentBookRecords = computed(() =>
     records.value.filter((r) => r.bookId === currentBookId.value)
   );
+
+  /** Every record's `amount` in a book is in the book currency. */
+  const currentBookCurrency = computed<CurrencyCode>(() => currencyOf(currentBook.value?.currency));
 
   // Auto-pull when current book changes
   watch(currentBookId, (newId) => {
@@ -66,7 +74,7 @@ export function setupBookActions(
     // (which otherwise never drops a member) actually deletes them.
     const deletedMemberIds = [...pendingDeleteMemberIds.value];
     // Signature of the book fields we push, to detect in-flight edits.
-    const bookSig = book.name + "|" + book.members.map((m) => m.id).join(",");
+    const bookSig = bookSignature(book);
     const payload = { book, records: pushedRecords, deletedIds, deletedMemberIds } as SharedBookPayload & {
       deletedIds: string[];
       deletedMemberIds: string[];
@@ -80,7 +88,7 @@ export function setupBookActions(
       // Only mark the book synced if it wasn't edited during the round trip.
       const stillBook = books.value.find((b) => b.id === bookId);
       if (stillBook) {
-        const nowSig = stillBook.name + "|" + stillBook.members.map((m) => m.id).join(",");
+        const nowSig = bookSignature(stillBook);
         if (nowSig === bookSig) stillBook.isSynced = true;
       }
 
@@ -126,6 +134,8 @@ export function setupBookActions(
       // otherwise a pull would revert a rename / member change awaiting push.
       if (book.isSynced !== false) {
         book.name = data.book.name;
+        // Books shared before multi-currency support have no currency in the cloud.
+        if (data.book.currency) book.currency = data.book.currency;
         book.members = data.book.members.filter((m) => !pendingDeleteMemberSet.has(m.id));
       } else {
         // A pending local book edit must not be reverted — but still adopt cloud
@@ -261,7 +271,7 @@ export function setupBookActions(
   //  Book CRUD
   // =====================
 
-  const createBook = async (name: string, memberNames: string[]) => {
+  const createBook = async (name: string, memberNames: string[], currency: CurrencyCode) => {
     if (!name.trim()) return null;
     const members: Member[] = memberNames
       .filter((n) => n.trim())
@@ -279,6 +289,7 @@ export function setupBookActions(
       id: crypto.randomUUID(),
       name,
       members,
+      currency,
       createdAt: new Date().toISOString(),
       isSynced: false,
     };
@@ -295,7 +306,12 @@ export function setupBookActions(
     pullSharedBook(bookId);
   };
 
-  const updateBook = async (bookId: string, name: string, memberNames: string[]) => {
+  const updateBook = async (
+    bookId: string,
+    name: string,
+    memberNames: string[],
+    currency?: CurrencyCode
+  ) => {
     const book = books.value.find((b) => b.id === bookId);
     if (!book || !name.trim()) return null;
 
@@ -366,6 +382,10 @@ export function setupBookActions(
 
     book.name = name.trim();
     book.members = newMembers;
+    // The currency is locked once the book has records: their amounts are in it.
+    if (currency && !records.value.some((r) => r.bookId === bookId)) {
+      book.currency = currency;
+    }
     book.isSynced = false;
     await save();
     syncSharedBook(bookId);
@@ -443,102 +463,31 @@ export function setupBookActions(
   );
   const balance = computed(() => totalIncome.value - totalExpense.value);
 
-  const memberStats = computed(() => {
-    if (!currentBook.value) return [];
+  const memberStats = computed(() =>
+    currentBook.value
+      ? calcMemberStats(currentBook.value.members, currentBookRecords.value, currentBookCurrency.value)
+      : []
+  );
 
-    const members = currentBook.value.members;
-    const allMemberIds = members.map((m) => m.id);
-
-    // Accumulate in integer cents so per-record shares sum EXACTLY to the amount
-    // and every member's net cancels out (independent rounding did not).
-    const paidCents: Record<string, number> = {};
-    const owedCents: Record<string, number> = {};
-    members.forEach((m) => {
-      paidCents[m.id] = 0;
-      owedCents[m.id] = 0;
-    });
-
-    currentBookRecords.value.forEach((r) => {
-      if (r.type !== "expense") return;
-
-      const amountCents = Math.round(r.amount * 100);
-      if (paidCents[r.paidById] !== undefined) {
-        paidCents[r.paidById] += amountCents;
-      }
-
-      if (r.splitCustomAmounts) {
-        // Custom split amounts
-        Object.entries(r.splitCustomAmounts).forEach(([memberId, amount]) => {
-          if (owedCents[memberId] !== undefined) {
-            owedCents[memberId] += Math.round(amount * 100);
-          }
-        });
-      } else {
-        // Equal split — distribute cents with remainder to the first members so
-        // the shares sum exactly to the record amount.
-        const splitIds = (r.splitAmongIds.includes("all") ? allMemberIds : r.splitAmongIds)
-          .filter((id) => owedCents[id] !== undefined);
-        const n = splitIds.length;
-        if (n > 0) {
-          const base = Math.floor(amountCents / n);
-          let extra = amountCents - base * n;
-          splitIds.forEach((id) => {
-            let c = base;
-            if (extra > 0) {
-              c += 1;
-              extra--;
-            }
-            owedCents[id] += c;
-          });
-        }
-      }
-    });
-
-    return members.map((member) => {
-      const paid = paidCents[member.id] || 0;
-      const owed = owedCents[member.id] || 0;
-      return {
-        member,
-        paid: paid / 100,
-        owed: owed / 100,
-        net: (paid - owed) / 100,
-      };
-    });
-  });
-
-  const settlements = computed((): Settlement[] => {
-    if (!currentBook.value) return [];
-    const balances = memberStats.value.map((s) => ({ member: s.member, net: s.net }));
-    const creditors = balances.filter((b) => b.net > 0).sort((a, b) => b.net - a.net);
-    const debtors = balances.filter((b) => b.net < 0).sort((a, b) => a.net - b.net);
-    const result: Settlement[] = [];
-    let ci = 0, di = 0;
-    // Use a sub-cent epsilon for comparisons so floating-point residue does not
-    // leave phantom debts/credits that never clear.
-    const EPS = 0.005;
-    while (ci < creditors.length && di < debtors.length) {
-      const credit = creditors[ci], debt = debtors[di];
-      const amount = Math.min(credit.net, -debt.net);
-      if (amount > EPS) {
-        result.push({ from: debt.member, to: credit.member, amount: Math.round(amount * 100) / 100 });
-      }
-      credit.net -= amount;
-      debt.net += amount;
-      if (credit.net <= EPS) ci++;
-      if (debt.net >= -EPS) di++;
-    }
-    return result;
-  });
+  const settlements = computed((): Settlement[] =>
+    currentBook.value ? calcSettlements(memberStats.value) : []
+  );
 
   const getMemberCategoryBreakdown = (memberId: string): MemberCategoryBreakdown[] => {
     if (!currentBook.value) return [];
     const allMemberIds = currentBook.value.members.map((m) => m.id);
-    return calcMemberCategoryBreakdown(currentBookRecords.value, allMemberIds, memberId);
+    return calcMemberCategoryBreakdown(
+      currentBookRecords.value,
+      allMemberIds,
+      memberId,
+      decimalsOf(currentBookCurrency.value)
+    );
   };
 
   return {
     currentBook,
     currentBookRecords,
+    currentBookCurrency,
     createBook,
     selectBook,
     updateBook,

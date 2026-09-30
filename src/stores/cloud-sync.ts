@@ -4,6 +4,7 @@ import { pushSyncByUUID, pullSyncByUUID } from "../utils/api";
 import { saveToStorage, STORAGE_KEYS } from "./storage";
 import { useToast } from "../composables/useToast";
 import { i18n } from "../i18n";
+import { currencyOf } from "../utils/currency";
 
 /**
  * Cloud backup/restore keyed by the user's secret local UUID.
@@ -77,6 +78,8 @@ export function setupCloudSyncActions(
       personal_records: personalRecords.value,
       categories: customCategories.value,
       templates: recordTemplates.value,
+      // Record amounts are in this currency, so it must travel with them.
+      profile: { baseCurrency: currencyOf(userProfile.value.baseCurrency) },
     };
     try {
       await pushSyncByUUID(userProfile.value.id, payload);
@@ -122,6 +125,8 @@ export function setupCloudSyncActions(
 
         // Adopt the restored backup's UUID as our own backup key.
         userProfile.value.id = uuid;
+        // Backups made before multi-currency support hold only TWD amounts.
+        userProfile.value.baseCurrency = currencyOf(response.data.profile?.baseCurrency);
         await save();
 
         toast.success(t("sync.restoreUUIDSuccess"));

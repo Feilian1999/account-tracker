@@ -32,6 +32,22 @@
             />
           </div>
           <div>
+            <label class="label-text" :for="currencyInputId">{{ $t("books.currency") }}</label>
+            <select
+              :id="currencyInputId"
+              v-model="form.currency"
+              :disabled="currencyLocked"
+              class="input-field text-sm disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option v-for="code in CURRENCY_CODES" :key="code" :value="code">
+                {{ code }} · {{ $t(`currency.names.${code}`) }}
+              </option>
+            </select>
+            <p v-if="currencyLocked" class="mt-1 text-xs text-gray-400 dark:text-gray-500">
+              {{ $t("books.currencyLocked") }}
+            </p>
+          </div>
+          <div>
             <label class="label-text" :for="membersInputId">{{ $t("books.membersDetail") }}</label>
             <textarea
               :id="membersInputId"
@@ -52,7 +68,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, useId, watch, toRef } from "vue";
+import { computed, ref, useId, watch, toRef } from "vue";
+import type { CurrencyCode } from "../../stores/types";
+import { CURRENCY_CODES, currencyOf } from "../../utils/currency";
 import { useI18n } from "vue-i18n";
 import { useTrackerStore } from "../../stores/tracker";
 import BaseButton from "../BaseButton.vue";
@@ -75,8 +93,14 @@ const baseId = useId();
 const titleId = `${baseId}-title`;
 const nameInputId = `${baseId}-name`;
 const membersInputId = `${baseId}-members`;
+const currencyInputId = `${baseId}-currency`;
 
-const form = ref({ name: "", membersText: "" });
+const form = ref({ name: "", membersText: "", currency: "TWD" as CurrencyCode });
+
+// A book's records are stored in its currency, so it is fixed once any exist.
+const currencyLocked = computed(
+  () => !!props.editBookId && store.records.some((r) => r.bookId === props.editBookId),
+);
 const submitting = ref(false);
 
 watch(
@@ -89,6 +113,7 @@ watch(
         form.value = {
           name: book.name,
           membersText: book.members.map((member) => member.name).join("\n"),
+          currency: currencyOf(book.currency),
         };
         return;
       }
@@ -96,6 +121,7 @@ watch(
     form.value = {
       name: "",
       membersText: store.userProfile.name || t("common.me"),
+      currency: store.baseCurrency,
     };
   },
 );
@@ -118,12 +144,17 @@ const handleCreate = async () => {
   submitting.value = true;
   try {
     if (props.editBookId) {
-      await store.updateBook(props.editBookId, form.value.name.trim(), defaultMembers);
+      await store.updateBook(
+        props.editBookId,
+        form.value.name.trim(),
+        defaultMembers,
+        currencyLocked.value ? undefined : form.value.currency,
+      );
       close();
       return;
     }
 
-    const book = await store.createBook(form.value.name.trim(), defaultMembers);
+    const book = await store.createBook(form.value.name.trim(), defaultMembers, form.value.currency);
     if (!book) return;
     close();
     emit("created", book.id);

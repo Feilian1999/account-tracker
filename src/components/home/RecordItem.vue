@@ -43,12 +43,11 @@
         </div>
       </button>
       <div class="flex items-center gap-2">
-        <p
-          class="max-w-[100px] truncate text-right font-bold tabular-nums text-gray-800 dark:text-gray-100"
-          :title="(record.type === 'expense' ? '-' : '+') + record.amount.toLocaleString()"
-        >
-          {{ record.type === "expense" ? "-" : "+" }}{{ record.amount.toLocaleString() }}
-        </p>
+        <RecordAmount
+          :record="record"
+          :expectedCurrency="store.baseCurrency"
+          amountClass="text-gray-800 dark:text-gray-100"
+        />
         <button type="button" class="btn-delete shrink-0" aria-label="Delete record" @click.stop="$emit('delete')">
           <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -64,6 +63,7 @@ import { useI18n } from "vue-i18n";
 import { useTrackerStore, type PersonalRecord } from "../../stores/tracker";
 import { colorMap } from "../../utils/category";
 import CategoryIcon from "../CategoryIcon.vue";
+import RecordAmount from "../RecordAmount.vue";
 
 defineProps<{
   record: PersonalRecord;

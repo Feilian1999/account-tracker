@@ -2,8 +2,8 @@
   <section :aria-labelledby="headingId">
     <header class="mb-2 flex items-center justify-between px-2 text-sm font-bold text-gray-500 dark:text-gray-400">
       <h3 :id="headingId">{{ formatDateWithWeekday(dateGroup, locale) }}</h3>
-      <span v-if="getGroupExpense(records) > 0" class="text-xs font-medium opacity-80">
-        {{ $t("common.expense") }} ${{ getGroupExpense(records).toLocaleString() }}
+      <span v-if="groupExpense > 0" class="text-xs font-medium opacity-80">
+        {{ $t("common.expense") }} {{ formatMoney(groupExpense, store.baseCurrency, locale) }}
       </span>
     </header>
 
@@ -26,6 +26,8 @@ import { useI18n } from "vue-i18n";
 import type { PersonalRecord } from "../../stores/tracker";
 import { formatDateWithWeekday } from "../../utils/category";
 import RecordItem from "./RecordItem.vue";
+import { useTrackerStore } from "../../stores/tracker";
+import { formatMoney, sumInCurrency } from "../../utils/currency";
 
 const props = defineProps<{
   dateGroup: string;
@@ -38,7 +40,8 @@ defineEmits<{
 }>();
 
 const { locale } = useI18n();
+const store = useTrackerStore();
 const headingId = computed(() => `record-group-${props.dateGroup}`);
 
-const getGroupExpense = (records: PersonalRecord[]) => records.filter((r) => r.type === "expense").reduce((s, r) => s + r.amount, 0);
+const groupExpense = computed(() => sumInCurrency(props.records, "expense", store.baseCurrency));
 </script>

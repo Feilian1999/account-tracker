@@ -25,6 +25,7 @@
       v-else
       :data="categoryItems"
       :total="total"
+      :currency="currency"
       activeTab="expense"
     />
   </BaseBottomSheet>
@@ -35,13 +36,14 @@ import BaseBottomSheet from "../BaseBottomSheet.vue";
 import CategoryBreakdown from "../statistics/CategoryBreakdown.vue";
 import CategoryIcon from "../CategoryIcon.vue";
 import type { CategoryBreakdownItem } from "../statistics/CategoryBreakdown.vue";
-import type { Member } from "../../stores/types";
+import type { CurrencyCode, Member } from "../../stores/types";
 
 defineProps<{
   modelValue: boolean;
   member: Member;
   categoryItems: CategoryBreakdownItem[];
   total: number;
+  currency: CurrencyCode;
 }>();
 
 defineEmits<{ "update:modelValue": [value: boolean] }>();

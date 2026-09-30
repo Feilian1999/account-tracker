@@ -115,6 +115,19 @@
         />
 
         <ProfileSettingItem
+          :title="$t('profile.baseCurrency')"
+          iconName="currency_exchange"
+          colorClasses="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30"
+          @click="openBaseCurrencySheet"
+        >
+          <template #right>
+            <span class="text-sm font-bold text-gray-500 dark:text-gray-400">
+              {{ store.baseCurrency }}
+            </span>
+          </template>
+        </ProfileSettingItem>
+
+        <ProfileSettingItem
           :title="$t('profile.languageSet')"
           iconName="language"
           colorClasses="bg-blue-50 text-blue-500 dark:bg-blue-900/30"
@@ -232,6 +245,79 @@
     </BaseBottomSheet>
 
     <BaseBottomSheet
+      v-model="showBaseCurrencySheet"
+      :title="$t('profile.baseCurrency')"
+      :subtitle="$t('baseCurrency.description')"
+    >
+      <div v-if="!currencyTarget" class="space-y-2">
+        <button
+          v-for="code in CURRENCY_CODES"
+          :key="code"
+          type="button"
+          :aria-pressed="store.baseCurrency === code"
+          :class="[
+            'flex w-full items-center justify-between rounded-2xl p-4 font-bold transition-all',
+            store.baseCurrency === code
+              ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
+              : 'bg-gray-50 text-gray-700 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700/80',
+          ]"
+          @click="chooseBaseCurrency(code)"
+        >
+          <span>{{ code }} · {{ $t(`currency.names.${code}`) }}</span>
+          <svg v-if="store.baseCurrency === code" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+          </svg>
+        </button>
+      </div>
+
+      <div v-else class="space-y-4" aria-live="polite">
+        <div>
+          <h3 class="text-base font-bold text-gray-800 dark:text-gray-100">
+            {{ $t("baseCurrency.confirmTitle", { from: store.baseCurrency, to: currencyTarget }) }}
+          </h3>
+          <p class="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+            {{
+              $t("baseCurrency.confirmBody", {
+                count: store.personalRecords.length,
+                from: store.baseCurrency,
+                to: currencyTarget,
+              })
+            }}
+          </p>
+        </div>
+        <button
+          type="button"
+          class="w-full rounded-2xl bg-emerald-600 p-4 text-left text-white shadow-md transition-colors hover:bg-emerald-700 disabled:opacity-50"
+          :disabled="converting"
+          @click="applyBaseCurrency('historical')"
+        >
+          <span class="block font-bold">{{ $t("baseCurrency.historical") }}</span>
+          <span class="mt-0.5 block text-xs opacity-80">{{ $t("baseCurrency.historicalHint") }}</span>
+        </button>
+        <button
+          type="button"
+          class="w-full rounded-2xl bg-gray-100 p-4 text-left text-gray-700 transition-colors hover:bg-gray-200 disabled:opacity-50 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+          :disabled="converting"
+          @click="applyBaseCurrency('today')"
+        >
+          <span class="block font-bold">{{ $t("baseCurrency.today") }}</span>
+          <span class="mt-0.5 block text-xs opacity-70">{{ $t("baseCurrency.todayHint") }}</span>
+        </button>
+        <p v-if="converting" class="text-center text-sm font-bold text-emerald-600 dark:text-emerald-400">
+          {{ $t("baseCurrency.converting") }}
+        </p>
+        <button
+          v-else
+          type="button"
+          class="w-full py-2 text-sm font-semibold text-gray-500 dark:text-gray-400"
+          @click="currencyTarget = null"
+        >
+          {{ $t("common.cancel") }}
+        </button>
+      </div>
+    </BaseBottomSheet>
+
+    <BaseBottomSheet
       v-model="showLangSheet"
       :title="$t('profile.languageSet')"
     >
@@ -272,6 +358,9 @@ import { useToast } from "../composables/useToast";
 import { useTrackerStore } from "../stores/tracker";
 import { parseEverydayCSV } from "../utils/everydayImport";
 import { parsePiggyBackup } from "../utils/piggyImport";
+import { CURRENCY_CODES } from "../utils/currency";
+import type { CurrencyCode } from "../stores/types";
+import type { RebaseMode } from "../stores/base-currency";
 
 const { locale, t } = useI18n();
 const router = useRouter();
@@ -284,6 +373,41 @@ const piggyFileInput = ref<HTMLInputElement | null>(null);
 const everydayFileInput = ref<HTMLInputElement | null>(null);
 const toast = useToast();
 const copied = ref(false);
+
+// ---- Base currency ----
+const showBaseCurrencySheet = ref(false);
+const currencyTarget = ref<CurrencyCode | null>(null);
+const converting = ref(false);
+
+const openBaseCurrencySheet = () => {
+  currencyTarget.value = null;
+  showBaseCurrencySheet.value = true;
+};
+
+const applyBaseCurrency = async (mode: RebaseMode) => {
+  const target = currencyTarget.value;
+  if (!target || converting.value) return;
+  converting.value = true;
+  try {
+    const { converted, pending } = await store.changeBaseCurrency(target, mode);
+    if (pending > 0) toast.warning(t("baseCurrency.donePending", { currency: target, count: pending }));
+    else toast.success(t("baseCurrency.done", { currency: target, count: converted }));
+    showBaseCurrencySheet.value = false;
+    currencyTarget.value = null;
+  } finally {
+    converting.value = false;
+  }
+};
+
+const chooseBaseCurrency = async (code: CurrencyCode) => {
+  if (code === store.baseCurrency) {
+    showBaseCurrencySheet.value = false;
+    return;
+  }
+  currencyTarget.value = code;
+  // Nothing to convert: switch without asking.
+  if (store.personalRecords.length === 0) await applyBaseCurrency("historical");
+};
 
 const copyUUID = async () => {
   try {
