@@ -1,91 +1,77 @@
 # Account Tracker
 
-A personal finance and group expense tracking app built with Vue 3 + Go. Works offline-first as a PWA, with optional cloud sync and native mobile support via Capacitor.
+An offline-first personal and shared expense tracker. A Vue 3 PWA, also wrapped
+as a native iOS/Android app with Capacitor. Everything is stored on the device
+first; the [backend](../account-tracker-backend) is only used for cloud backup
+and shared books. There are no accounts — the app identifies a device with a
+locally generated UUID.
 
 ## Features
 
-- **Personal records**: Track your own income and expenses with categories and templates
-- **Shared books**: Collaborate with others via 6-digit share codes; split expenses with customizable member splits
-- **Offline-first**: All data stored locally in IndexedDB; works without internet
-- **Cloud sync**: Optional Google login to sync data across devices
-- **Pending sync protection**: Locally-created records are never overwritten by cloud pulls until explicitly pushed
-- **Data import**: Import from 小豬記帳本 (.txt) and 天天記帳 (.csv)
-- **i18n**: Traditional Chinese and English
-- **Mobile**: Build as native iOS/Android app via Capacitor
+- **Personal records** with categories, templates and a built-in calculator
+- **Shared books** for splitting expenses: equal or custom splits (amounts,
+  expressions like `1,000` or `20%`), settlement suggestions, per-member
+  category breakdowns
+- **Members** managed one per row with avatars; friends join with an 8-character
+  share code and pick which member they are
+- **Multiple currencies** — TWD, JPY, USD, THB, VND, CNY, EUR, KRW, GBP — with the
+  day's exchange rate fetched automatically (editable, cached for offline use).
+  Each book has its own currency; personal records total in a switchable base
+  currency
+- **Statistics** by year/month with trends and category breakdowns
+- **Cloud backup** by UUID, and import from 小豬記帳本 (.txt) and 天天記帳 (.csv)
+- Traditional Chinese, English and Japanese; light, dark, system and sheep themes;
+  keyboard shortcuts (`Ctrl/⌘ + /` lists them)
 
-## Tech Stack
+## Stack
 
-- **Vue 3** (Composition API, `<script setup>`) + TypeScript
-- **Pinia** (modular stores) + **Vue Router v5**
-- **Tailwind CSS v4**
-- **IndexedDB** via `idb` library (offline storage)
-- **Capacitor 8** (iOS/Android)
-- **Vite** + `vue-tsc`
-- Backend: Go + Gin + PostgreSQL — see [`../account-tracker-backend`](../account-tracker-backend)
+Vue 3 (Composition API, `<script setup>`) · TypeScript · Pinia · Vue Router ·
+Tailwind CSS v4 · IndexedDB (`idb`) · vue-i18n · Vite · Vitest · Capacitor 8 ·
+deployed on Vercel
 
-## Getting Started
+## Getting started
 
-### Prerequisites
-
-- Node.js 20+
-
-### Setup
+Requires Node.js 20+.
 
 ```bash
 npm install
-
-# Create .env
-echo "VITE_API_URL=http://localhost:8080/api" > .env
-
-npm run dev       # http://localhost:5173
+echo "VITE_API_URL=http://localhost:8080/api" > .env   # the backend's /api URL
+npm run dev                                            # http://localhost:5173
 ```
 
-### Build
+| Command | |
+|---|---|
+| `npm run dev` | dev server |
+| `npm run build` | type-check + production build to `dist/` |
+| `npm run preview` | serve the production build |
+| `npm run test` | unit and component tests |
+| `npm run lint` | Prettier check |
 
-```bash
-npm run build     # outputs to dist/
-npm run preview   # preview production build
-```
+Production sets `VITE_API_URL` in the Vercel project; without it a build talks to
+`localhost`.
 
 ### Mobile (Capacitor)
 
 ```bash
 npm run build
 npx cap sync
-npx cap open ios      # requires Xcode
-npx cap open android  # requires Android Studio
+npx cap open ios        # requires Xcode
 ```
 
-## Project Structure
+## Project structure
 
 ```
 src/
-├── stores/           # All state (Pinia)
-│   ├── tracker.ts    # Root store — composes all submodules
-│   ├── books.ts      # Book & RecordItem CRUD + shared book sync
-│   ├── personal.ts   # PersonalRecord CRUD
-│   ├── categories.ts # Custom category CRUD
-│   ├── templates.ts  # RecordTemplate CRUD
-│   ├── cloud-sync.ts # Cloud push/pull/merge logic
-│   ├── user.ts       # User profile & auth actions
-│   ├── storage.ts    # IndexedDB helpers + STORAGE_KEYS
-│   └── types.ts      # All TypeScript interfaces
-├── utils/
-│   ├── api.ts        # Axios instance + API functions
-│   ├── piggyImport.ts
-│   └── everydayImport.ts
-├── views/            # Login, Home, Books, Statistics, Profile
-├── components/       # Modals, sheets, calculator keyboard, etc.
-└── locales/          # en.ts, zh-TW.ts
+├── stores/       Pinia store (tracker.ts) and its modules: books, personal, sync, …
+├── components/   shared UI, plus books/, home/, statistics/
+├── composables/  toasts, Escape/Back handling, primary action, currency input
+├── utils/        currency, exchange rates, settlement, dates, importers, API client
+├── views/        Home, Books, Statistics, Profile, Landing, Login, legal pages
+└── locales/      en, zh-TW, ja
+tests/            Vitest suites
 ```
 
-See [`CLAUDE.md`](CLAUDE.md) for full architectural details.
-
-## Environment
-
-```env
-VITE_API_URL=http://localhost:8080/api
-```
+Architecture, data model and conventions are documented in [`CLAUDE.md`](CLAUDE.md).
 
 ## License
 
