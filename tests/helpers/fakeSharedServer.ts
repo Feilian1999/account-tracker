@@ -26,6 +26,15 @@ export function createFakeServer() {
   /** Hold the next sync until release() — to interleave edits with a request. */
   let gate: Promise<void> | null = null;
   let gateCode: string | undefined;
+  let gateKind = "sync";
+  /** Awaits the held gate if this request matches it. */
+  const passGate = async (kind: string, code?: string) => {
+    if (gate && gateKind === kind && (!gateCode || gateCode === code)) {
+      const g = gate;
+      gate = null;
+      await g;
+    }
+  };
   let release = () => {};
 
   const hash = (space: Space) => JSON.stringify(space.legacy);
@@ -75,6 +84,7 @@ export function createFakeServer() {
 
   const api = {
     createSharedDoc: async (doc: Doc) => {
+      await passGate("create");
       const code = `CODE${String(++codes).padStart(4, "0")}`;
       const space: Space = { doc: emptyDoc(), version: 0 };
       mergeInto(space, doc, true);
@@ -83,6 +93,7 @@ export function createFakeServer() {
       return { data: { code, version: space.version } };
     },
     getSharedDoc: async (code: string, n = 0) => {
+      await passGate("get", code);
       const space = spaces.get(code);
       requests.push({ kind: "get", code });
       if (!space)
@@ -102,11 +113,7 @@ export function createFakeServer() {
       body: { since: number; changes: Doc; base?: Doc; baseOf?: string },
     ) => {
       requests.push({ kind: "sync", code, body: clone(body) });
-      if (gate && (!gateCode || gateCode === code)) {
-        const g = gate;
-        gate = null;
-        await g;
-      }
+      await passGate("sync", code);
       const space = spaces.get(code);
       if (!space)
         throw Object.assign(new Error("404"), { response: { status: 404 } });
@@ -150,8 +157,16 @@ export function createFakeServer() {
       if (space.doc) throw new Error("409 upgrade_required");
       mutate(space.legacy!);
     },
+    /** Holds the next request of `kind` (and `code`, if given) until release(). */
+    holdNext(kind: "sync" | "get" | "create", code?: string) {
+      gateKind = kind;
+      gateCode = code;
+      gate = new Promise((r) => (release = r));
+      return () => release();
+    },
     /** Holds the next sync (of `code`, if given) until the returned release(). */
     holdNextSync(code?: string) {
+      gateKind = "sync";
       gateCode = code;
       gate = new Promise((r) => (release = r));
       return () => release();

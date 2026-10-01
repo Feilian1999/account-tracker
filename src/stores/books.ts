@@ -126,8 +126,11 @@ export function setupBookActions(
    * the local copy may be stale, and re-sending it is exactly how v1 reverted
    * other people's edits.
    */
-  const firstContact = async (book: Book): Promise<SharedDocState> => {
+  const firstContact = async (book: Book): Promise<SharedDocState | null> => {
     const res = await getSharedDoc(book.shareCode!, 0);
+    // Left (deleteBook) or re-joined while the request was out: don't resurrect
+    // a replica, and above all don't upgrade a space the user just left.
+    if (!books.value.some((b) => b.id === book.id) || sharedDocs.value[book.id]) return null;
     const legacy = res.data.legacy;
     const doc = legacy ? legacyToDoc(legacy) : (res.data.doc ?? emptyDoc());
     if (!legacy) observeDoc(doc);
@@ -194,6 +197,12 @@ export function setupBookActions(
     state.base = base;
     state.baseOf = legacyHash;
     state.version = 0;
+    // The local copy now trails the doc (the old client's writes): show the doc
+    // at once, or the next stage() would stage those writes as deletions.
+    const bookId = Object.keys(sharedDocs.value).find(
+      (id) => toRaw(sharedDocs.value[id]) === toRaw(state),
+    );
+    if (bookId) applyDoc(bookId);
   };
 
   const sendOnce = async (state: SharedDocState) => {
@@ -223,6 +232,7 @@ export function setupBookActions(
     const book = books.value.find((b) => b.id === bookId);
     if (!book?.shareCode) return;
     const state = sharedDocs.value[bookId] ?? (await firstContact(book));
+    if (!state) return;
     stage(bookId);
 
     // A refused upgrade is retried against the payload the server returned; a
@@ -237,8 +247,20 @@ export function setupBookActions(
     // Compare raw objects: sharedDocs is reactive, so reading it back yields a
     // proxy that is never === the object firstContact created.
     if (toRaw(sharedDocs.value[bookId]) !== toRaw(state)) return;
+    // Capture any local edit not staged yet before the doc moves under it.
+    stage(bookId);
     observeDoc(res.data.doc);
-    mergeDoc(state.doc, res.data.doc);
+    if (base) {
+      // The request carried our conversion of the v1 payload, so `since` was 0
+      // and the response is the server's whole doc. Adopt it rather than merge:
+      // if another device upgraded from a newer payload, both conversions are
+      // stamped ZERO and a merge would keep our stale values on every tie.
+      const fresh = res.data.doc;
+      mergeDoc(fresh, clone(state.pending));
+      state.doc = fresh;
+    } else {
+      mergeDoc(state.doc, res.data.doc);
+    }
     state.version = res.data.version;
     ackPending(state.pending, sent);
     if (base) {
@@ -306,6 +328,9 @@ export function setupBookActions(
         const res = await createSharedDoc(doc);
         book.shareCode = res.data.code;
         sharedDocs.value[bookId] = { code: res.data.code, version: res.data.version, doc, pending: emptyDoc() };
+        // Records added or edited while the request was out aren't in `doc`
+        // (there was no replica to stage into): stage them now, and send them.
+        if (stage(bookId)) debouncedSync(bookId);
         applyDoc(bookId);
         await save();
         return book.shareCode;
@@ -511,8 +536,10 @@ export function setupBookActions(
       book.currency = currency;
     }
     book.isSynced = false;
-    await save();
+    // Stage before the await: a sync response landing during save() would
+    // otherwise re-materialize the book and drop this edit.
     syncSharedBook(bookId);
+    await save();
     return book;
   };
 
@@ -545,8 +572,8 @@ export function setupBookActions(
       bookId: currentBookId.value,
       isSynced: false,
     });
+    syncSharedBook(currentBookId.value); // stage before the await (see updateBook)
     await save();
-    syncSharedBook(currentBookId.value);
   };
 
   const updateRecord = async (id: string, record: Partial<Omit<RecordItem, "id" | "bookId">>) => {
@@ -554,8 +581,8 @@ export function setupBookActions(
     if (idx !== -1) {
       const bookId = records.value[idx].bookId;
       records.value[idx] = { ...records.value[idx], ...record, isSynced: false };
+      syncSharedBook(bookId); // stage before the await (see updateBook)
       await save();
-      syncSharedBook(bookId);
     }
   };
 
@@ -564,8 +591,8 @@ export function setupBookActions(
     if (record) {
       pendingDeleteRecordIds.value.push(id);
       records.value = records.value.filter((r) => r.id !== id);
+      syncSharedBook(record.bookId); // stage before the await (see updateBook)
       await save();
-      syncSharedBook(record.bookId);
     }
   };
 

@@ -284,15 +284,26 @@ export function legacyToDoc(payload: {
   };
   b.members.forEach((m, i) => {
     doc.members[m.id] = {
-      // Keeps the v1 member order; sorts before any member added later.
-      f: { id: m.id, created: `${ZERO}:${String(i).padStart(5, "0")}` },
+      // Keeps the v1 member order and sorts before any member added later:
+      // "0-…" < "00…" (every real stamp), since "-" (0x2D) sorts below "0".
+      f: { id: m.id, created: `${ZERO}-${String(i).padStart(5, "0")}` },
       r: zero(memberValues(m)),
     };
   });
   for (const r of payload.records) {
+    // Same defaults materialize() fills in, so the first stage() after a join
+    // doesn't see a "change" and restamp the whole $money register.
+    const normalized: RecordItem = {
+      ...r,
+      type: r.type ?? "expense",
+      amount: Number(r.amount ?? 0),
+      paidById: r.paidById ?? "",
+      splitAmongIds: r.splitAmongIds ?? [],
+      note: r.note ?? "",
+    };
     doc.records[r.id] = {
       f: { id: r.id, bookId: b.id },
-      r: zero(recordValues(r)),
+      r: zero(recordValues(normalized)),
     };
   }
   for (const id of payload.deletedIds ?? []) {

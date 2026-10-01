@@ -219,6 +219,19 @@ export const useTrackerStore = defineStore("tracker", () => {
     save,
   );
 
+  // A restore replaces books and records wholesale (and backups carry no
+  // shareCode), so any shared replica now describes a book that isn't there in
+  // that form. Drop them: staging a restored copy against a live replica would
+  // push its stale state — deletions included — to everyone.
+  const restoreByUUID = async (uuid: string) => {
+    const restored = await cloudSyncActions.restoreByUUID(uuid);
+    if (restored) {
+      sharedDocs.value = {};
+      await save();
+    }
+    return restored;
+  };
+
   // =====================
   //  Return All
   // =====================
@@ -257,5 +270,6 @@ export const useTrackerStore = defineStore("tracker", () => {
 
     // Cloud Sync
     ...cloudSyncActions,
+    restoreByUUID,
   };
 });

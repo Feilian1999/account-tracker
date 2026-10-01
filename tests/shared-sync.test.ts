@@ -23,7 +23,11 @@ beforeEach(() => {
 });
 
 /** One device: its own store state, like a separate phone. */
-const device = (memberId: string, name: string) => {
+const device = (
+  memberId: string,
+  name: string,
+  save: () => Promise<void> = async () => {},
+) => {
   const books = ref<Book[]>([]);
   const records = ref<RecordItem[]>([]);
   const currentBookId = ref<string | null>(null);
@@ -46,7 +50,7 @@ const device = (memberId: string, name: string) => {
     ref<string[]>([]),
     pendingDeleteRecordIds,
     pendingDeleteMemberIds,
-    vi.fn(async () => {}),
+    vi.fn(save),
   );
   const bookRecords = () =>
     records.value
@@ -326,6 +330,223 @@ describe("shared books over the CRDT", () => {
       null,
     );
     expect(b.bookRecords()).toEqual(a.bookRecords());
+  });
+
+  it("an edit made while save() awaits isn't wiped by a sync landing then", async () => {
+    // Every save() while held waits on one gate (the sync's own save included).
+    let saveGate: Promise<void> | null = null;
+    let openGate: () => void = () => {};
+    const save = () => saveGate ?? Promise.resolve();
+    const a = device("pub-a", "Allen", save);
+    const book = await a.createBook(
+      "Race",
+      [{ id: "ma", name: "Allen", userId: "pub-a" }],
+      "TWD",
+    );
+    await a.publishBook(book!.id);
+
+    const code = a.books.value[0].shareCode!;
+    const before = server.requests.length;
+    // Nothing pending, so this pull is a GET; hold it in flight.
+    const releaseSync = server.holdNext("get", code);
+    const syncing = a.pullSharedBook(book!.id);
+    await vi.waitFor(() =>
+      expect(server.requests.slice(before).some((q) => q.kind === "get")).toBe(
+        true,
+      ),
+    );
+    saveGate = new Promise((r) => (openGate = r));
+    const adding = a.addRecord(
+      expense({
+        note: "added mid-sync",
+        paidById: "ma",
+        splitAmongIds: ["ma"],
+      }),
+    );
+    releaseSync(); // the response lands (and re-materializes) while addRecord awaits save()
+    await vi.waitFor(() =>
+      expect(
+        server.requests.filter((q) => q.kind === "sync").length,
+      ).toBeGreaterThan(0),
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    saveGate = null;
+    openGate();
+    await adding;
+    await syncing;
+    await a.pullSharedBook(book!.id);
+
+    expect(a.bookRecords().map((r) => r.note)).toEqual(["added mid-sync"]);
+    const b = device("pub-b", "Bob");
+    await b.joinSharedBook(code, await b.previewSharedBook(code), null);
+    expect(b.bookRecords().map((r) => r.note)).toEqual(["added mid-sync"]);
+  });
+
+  it("a record added while the share request is out is kept and sent", async () => {
+    const a = device("pub-a", "Allen");
+    const book = await a.createBook(
+      "Share race",
+      [{ id: "ma", name: "Allen", userId: "pub-a" }],
+      "TWD",
+    );
+    const release = server.holdNext("create");
+    const sharing = a.publishBook(book!.id);
+    await a.addRecord(
+      expense({ note: "during share", paidById: "ma", splitAmongIds: ["ma"] }),
+    );
+    release();
+    const code = (await sharing)!;
+    await a.pullSharedBook(book!.id);
+    expect(a.bookRecords().map((r) => r.note)).toEqual(["during share"]);
+    const b = device("pub-b", "Bob");
+    await b.joinSharedBook(code, await b.previewSharedBook(code), null);
+    expect(b.bookRecords().map((r) => r.note)).toEqual(["during share"]);
+  });
+
+  it("a device holding an older v1 conversion adopts the server's doc", async () => {
+    const legacyBook: Book = {
+      id: "two-bases",
+      name: "Two bases",
+      createdAt: "2026-01-01T00:00:00Z",
+      members: [{ id: "ma", name: "Allen" }],
+    };
+    const r = (id: string, note: string): RecordItem => ({
+      id,
+      bookId: "two-bases",
+      ...expense({ note, paidById: "ma", splitAmongIds: ["ma"] }),
+    });
+    server.seedLegacy("BASES001", {
+      book: legacyBook,
+      records: [r("r1", "v1 note"), r("r2", "two")],
+    });
+    const b = device("pub-b", "Bob");
+    const stalePreview = await b.previewSharedBook("BASES001"); // converted from P1
+    // An old client edits r1 and deletes r2; then A upgrades from that payload.
+    server.v1Write("BASES001", (legacy) => {
+      legacy.records = [r("r1", "edited in v1")];
+      legacy.deletedIds = ["r2"];
+    });
+    const a = device("pub-a", "Allen");
+    await a.joinSharedBook(
+      "BASES001",
+      await a.previewSharedBook("BASES001"),
+      null,
+    );
+    // B joins with its stale preview: its base is ignored (the space has a doc).
+    await b.joinSharedBook("BASES001", stalePreview, null);
+    expect(b.bookRecords().map((x) => x.note)).toEqual(["edited in v1"]);
+    expect(b.bookRecords()).toEqual(a.bookRecords());
+  });
+
+  it("members added after a v1 upgrade sort after the original ones", async () => {
+    const legacyBook: Book = {
+      id: "order-book",
+      name: "Order",
+      createdAt: "2026-01-01T00:00:00Z",
+      members: [
+        { id: "m1", name: "Alice", userId: "pub-a" },
+        { id: "m2", name: "Bob" },
+      ],
+    };
+    server.seedLegacy("ORDER001", { book: legacyBook, records: [] });
+    const a = device("pub-a", "Alice");
+    await a.joinSharedBook(
+      "ORDER001",
+      await a.previewSharedBook("ORDER001"),
+      null,
+    );
+    await a.updateBook("order-book", "Order", [
+      { id: "m1", name: "Alice", userId: "pub-a" },
+      { id: "m2", name: "Bob" },
+      { id: "m3", name: "Carol" },
+    ]);
+    await a.pullSharedBook("order-book");
+    expect(a.books.value[0].members.map((m) => m.name)).toEqual([
+      "Alice",
+      "Bob",
+      "Carol",
+    ]);
+  });
+
+  it("leaving a v1 book during its first sync doesn't upgrade the space", async () => {
+    const legacyBook: Book = {
+      id: "leave-book",
+      name: "Leave",
+      createdAt: "2026-01-01T00:00:00Z",
+      members: [{ id: "ma", name: "Allen", userId: "pub-a" }],
+    };
+    server.seedLegacy("LEAVE001", { book: legacyBook, records: [] });
+    const a = device("pub-a", "Allen");
+    a.books.value.push({
+      ...legacyBook,
+      shareCode: "LEAVE001",
+      isSynced: true,
+    });
+    const release = server.holdNext("get", "LEAVE001");
+    const syncing = a.pullSharedBook("leave-book");
+    await a.deleteBook("leave-book");
+    release();
+    await syncing;
+    expect(server.spaces.get("LEAVE001")!.doc).toBeNull(); // still v1
+    expect(a.sharedDocs.value["leave-book"]).toBeUndefined();
+  });
+
+  it("after a refused upgrade, the old client's writes aren't staged as deletions", async () => {
+    const legacyBook: Book = {
+      id: "rebase-book",
+      name: "Rebase",
+      createdAt: "2026-01-01T00:00:00Z",
+      members: [{ id: "ma", name: "Allen", userId: "pub-a" }],
+    };
+    const r = (id: string, note: string): RecordItem => ({
+      id,
+      bookId: "rebase-book",
+      ...expense({ note, paidById: "ma", splitAmongIds: ["ma"] }),
+    });
+    server.seedLegacy("REBASE01", {
+      book: legacyBook,
+      records: [r("r1", "one")],
+    });
+    const a = device("pub-a", "Allen");
+    a.books.value.push({
+      ...legacyBook,
+      shareCode: "REBASE01",
+      isSynced: true,
+    });
+    a.records.value.push({ ...r("r1", "one"), isSynced: true });
+
+    // A converts the payload; an old client adds X before A's upgrade lands, so
+    // the server refuses it (409). The immediate retry then fails on the network.
+    const release = server.holdNextSync("REBASE01");
+    let calls = 0;
+    const real = api.syncSharedDoc;
+    const spy = vi
+      .spyOn(api, "syncSharedDoc")
+      .mockImplementation(async (...args) => {
+        if (++calls === 2) throw new Error("offline");
+        return real(...args);
+      });
+    const syncing = a.pullSharedBook("rebase-book");
+    await vi.waitFor(() =>
+      expect(
+        server.requests.some((q) => q.kind === "sync" && q.code === "REBASE01"),
+      ).toBe(true),
+    );
+    server.v1Write("REBASE01", (legacy) =>
+      legacy.records.push(r("x", "old client")),
+    );
+    release();
+    await syncing;
+    spy.mockRestore();
+
+    // The rebased doc is shown right away; an edit now must not delete X.
+    expect(a.bookRecords().map((x) => x.note)).toEqual(["one", "old client"]);
+    await a.updateRecord("r1", { note: "one (edited)" });
+    await a.pullSharedBook("rebase-book");
+    expect(a.bookRecords().map((x) => x.note)).toEqual([
+      "one (edited)",
+      "old client",
+    ]);
   });
 
   it("joining never adds a member", async () => {

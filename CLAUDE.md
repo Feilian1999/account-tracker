@@ -268,8 +268,21 @@ Invariants — each exists because breaking it lost data before:
   `book.members` (a concurrent record may involve them — settlement still
   counts them). UI lists use `activeMembers()`. Leaving a shared book
   (`deleteBook`) only drops the local replica, never stages deletions.
+- **Stage before any `await`.** Store actions call `syncSharedBook` (which
+  stages) right after mutating and only then `await save()`; `runSync` also
+  stages before applying a response. Otherwise a response landing during the
+  await re-materializes the book and the edit is gone. Same reason
+  `publishBook` stages edits made while the create request was out, and
+  `rebaseOnLegacy` re-materializes at once.
+- **A sync that carried a `base` adopts the server's doc** instead of merging:
+  two conversions of different v1 payloads are both stamped `ZERO`, and a merge
+  would keep the local, possibly stale, value on every tie.
+- **Known limitation:** the book currency is its own register. Changing an
+  empty shared book's currency while another device adds its first record can
+  leave a record in the old currency (the local lock only sees local records).
 - **Never drop a replica on a sync error**: `pending` is the only copy of
-  unsent edits. And compare replicas with `toRaw` — `sharedDocs` is reactive,
+  unsent edits (a backup restore is the exception: it clears all replicas, since
+  restored books are no longer shared). And compare replicas with `toRaw` — `sharedDocs` is reactive,
   so a state read back from it is a proxy, never `===` the object stored.
 - **One sync per book at a time** (`syncNow`): a request while one runs becomes
   a single follow-up. A sync sends `pending` + `since: version` and gets back
