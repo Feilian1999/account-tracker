@@ -1,8 +1,18 @@
 import type { Ref } from "vue";
 import { computed, toRaw, watch } from "vue";
-import type { Book, CurrencyCode, RecordItem, Member, Settlement, UserProfile } from "./types";
+import type {
+  Book,
+  CurrencyCode,
+  RecordItem,
+  Member,
+  Settlement,
+  UserProfile,
+} from "./types";
 import { createSharedDoc, getSharedDoc, syncSharedDoc } from "../utils/api";
-import { calcMemberCategoryBreakdown, type MemberCategoryBreakdown } from "../utils/memberBreakdown";
+import {
+  calcMemberCategoryBreakdown,
+  type MemberCategoryBreakdown,
+} from "../utils/memberBreakdown";
 import { calcMemberStats, calcSettlements } from "../utils/settlement";
 import { currencyOf, decimalsOf } from "../utils/currency";
 import { isSelf, type MemberDraft } from "../utils/member";
@@ -25,15 +35,21 @@ import { i18n } from "../i18n";
 // ---- Debounce helper (keyed by the first argument) ----
 // A shared timer would let a mutation on book B cancel book A's pending sync,
 // stranding A's changes locally. Keep one timer per key (bookId).
-function debouncePerKey(fn: (key: string) => any, ms: number): (key: string) => void {
+function debouncePerKey(
+  fn: (key: string) => any,
+  ms: number,
+): (key: string) => void {
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
   return (key: string) => {
     const prev = timers.get(key);
     if (prev) clearTimeout(prev);
-    timers.set(key, setTimeout(() => {
-      timers.delete(key);
-      fn(key);
-    }, ms));
+    timers.set(
+      key,
+      setTimeout(() => {
+        timers.delete(key);
+        fn(key);
+      }, ms),
+    );
   };
 }
 
@@ -62,24 +78,30 @@ export function setupBookActions(
   pendingDeleteBookIds: Ref<string[]>,
   pendingDeleteRecordIds: Ref<string[]>,
   pendingDeleteMemberIds: Ref<string[]>,
-  save: () => Promise<void>
+  save: () => Promise<void>,
 ) {
   // ---- Computed ----
   const currentBook = computed(
-    () => books.value.find((b) => b.id === currentBookId.value) ?? null
+    () => books.value.find((b) => b.id === currentBookId.value) ?? null,
   );
 
   const currentBookRecords = computed(() =>
-    records.value.filter((r) => r.bookId === currentBookId.value)
+    records.value.filter((r) => r.bookId === currentBookId.value),
   );
 
   /** Every record's `amount` in a book is in the book currency. */
-  const currentBookCurrency = computed<CurrencyCode>(() => currencyOf(currentBook.value?.currency));
+  const currentBookCurrency = computed<CurrencyCode>(() =>
+    currencyOf(currentBook.value?.currency),
+  );
 
   // Auto-pull when current book changes
-  watch(currentBookId, (newId) => {
-    if (newId) pullSharedBook(newId);
-  }, { immediate: true });
+  watch(
+    currentBookId,
+    (newId) => {
+      if (newId) pullSharedBook(newId);
+    },
+    { immediate: true },
+  );
 
   // =====================
   //  Shared Book Sync — CRDT (utils/crdt.ts, /api/shared/v2)
@@ -92,7 +114,8 @@ export function setupBookActions(
   // in one round trip; merging is order-independent, so there is nothing to
   // "win" by arriving last.
 
-  const recordsOf = (bookId: string) => records.value.filter((r) => r.bookId === bookId);
+  const recordsOf = (bookId: string) =>
+    records.value.filter((r) => r.bookId === bookId);
 
   /** Stages the book's local edits into its doc. No-op until it has one. */
   const stage = (bookId: string) => {
@@ -115,7 +138,10 @@ export function setupBookActions(
     book.isSynced = !pending.book && pending.members.size === 0;
     records.value = [
       ...records.value.filter((r) => r.bookId !== bookId),
-      ...view.records.map((r) => ({ ...r, isSynced: !pending.records.has(r.id) })),
+      ...view.records.map((r) => ({
+        ...r,
+        isSynced: !pending.records.has(r.id),
+      })),
     ];
   };
 
@@ -130,7 +156,8 @@ export function setupBookActions(
     const res = await getSharedDoc(book.shareCode!, 0);
     // Left (deleteBook) or re-joined while the request was out: don't resurrect
     // a replica, and above all don't upgrade a space the user just left.
-    if (!books.value.some((b) => b.id === book.id) || sharedDocs.value[book.id]) return null;
+    if (!books.value.some((b) => b.id === book.id) || sharedDocs.value[book.id])
+      return null;
     const legacy = res.data.legacy;
     const doc = legacy ? legacyToDoc(legacy) : (res.data.doc ?? emptyDoc());
     if (!legacy) observeDoc(doc);
@@ -147,7 +174,9 @@ export function setupBookActions(
     const unsynced = recordsOf(book.id).filter((r) => r.isSynced === false);
     const unsyncedIds = new Set(unsynced.map((r) => r.id));
     const localRecords = [
-      ...view.records.filter((r) => !unsyncedIds.has(r.id) && !deleted.has(r.id)),
+      ...view.records.filter(
+        (r) => !unsyncedIds.has(r.id) && !deleted.has(r.id),
+      ),
       ...unsynced,
     ];
     const archivedIds = new Set(pendingDeleteMemberIds.value);
@@ -155,21 +184,38 @@ export function setupBookActions(
       ...book,
       ...(book.isSynced === false
         ? {}
-        : { name: view.book.name, currency: view.book.currency, members: view.book.members }),
+        : {
+            name: view.book.name,
+            currency: view.book.currency,
+            members: view.book.members,
+          }),
     };
     localBook.members = [
-      ...localBook.members.map((m) => (archivedIds.has(m.id) ? { ...m, archived: true } : m)),
+      ...localBook.members.map((m) =>
+        archivedIds.has(m.id) ? { ...m, archived: true } : m,
+      ),
       // Members the device already dropped under v1: keep them, archived.
       ...view.book.members
-        .filter((m) => archivedIds.has(m.id) && !localBook.members.some((l) => l.id === m.id))
+        .filter(
+          (m) =>
+            archivedIds.has(m.id) &&
+            !localBook.members.some((l) => l.id === m.id),
+        )
         .map((m) => ({ ...m, archived: true })),
     ];
     stageLocal(state.doc, state.pending, localBook, localRecords);
 
     // Those v1 tombstones are now CRDT tombstones.
-    const docIds = new Set([...Object.keys(doc.records), ...Object.keys(doc.members)]);
-    pendingDeleteRecordIds.value = pendingDeleteRecordIds.value.filter((id) => !docIds.has(id));
-    pendingDeleteMemberIds.value = pendingDeleteMemberIds.value.filter((id) => !docIds.has(id));
+    const docIds = new Set([
+      ...Object.keys(doc.records),
+      ...Object.keys(doc.members),
+    ]);
+    pendingDeleteRecordIds.value = pendingDeleteRecordIds.value.filter(
+      (id) => !docIds.has(id),
+    );
+    pendingDeleteMemberIds.value = pendingDeleteMemberIds.value.filter(
+      (id) => !docIds.has(id),
+    );
 
     sharedDocs.value[book.id] = state;
     // Replace the (possibly stale) local copy with the doc right away: the
@@ -187,7 +233,9 @@ export function setupBookActions(
    */
   const rebaseOnLegacy = (
     state: SharedDocState,
-    legacy: NonNullable<Awaited<ReturnType<typeof getSharedDoc>>["data"]["legacy"]>,
+    legacy: NonNullable<
+      Awaited<ReturnType<typeof getSharedDoc>>["data"]["legacy"]
+    >,
     legacyHash?: string,
   ) => {
     const base = legacyToDoc(legacy);
@@ -220,7 +268,11 @@ export function setupBookActions(
       return { res, sent, base };
     } catch (e: any) {
       const data = e?.response?.data;
-      if (e?.response?.status === 409 && data?.error === "base_required" && data.legacy) {
+      if (
+        e?.response?.status === 409 &&
+        data?.error === "base_required" &&
+        data.legacy
+      ) {
         rebaseOnLegacy(state, data.legacy, data.legacyHash);
         return null; // retry with the fresh base
       }
@@ -327,7 +379,12 @@ export function setupBookActions(
       try {
         const res = await createSharedDoc(doc);
         book.shareCode = res.data.code;
-        sharedDocs.value[bookId] = { code: res.data.code, version: res.data.version, doc, pending: emptyDoc() };
+        sharedDocs.value[bookId] = {
+          code: res.data.code,
+          version: res.data.version,
+          doc,
+          pending: emptyDoc(),
+        };
         // Records added or edited while the request was out aren't in `doc`
         // (there was no replica to stage into): stage them now, and send them.
         if (stage(bookId)) debouncedSync(bookId);
@@ -345,10 +402,17 @@ export function setupBookActions(
   };
 
   /** Fetches a shared book by code without joining it (for the "who are you?" step). */
-  const previewSharedBook = async (code: string): Promise<SharedBookPreview> => {
+  const previewSharedBook = async (
+    code: string,
+  ): Promise<SharedBookPreview> => {
     const res = await getSharedDoc(code, 0);
     const legacy = res.data.legacy;
-    if (legacy && (!legacy.book || !Array.isArray(legacy.book.members) || !Array.isArray(legacy.records))) {
+    if (
+      legacy &&
+      (!legacy.book ||
+        !Array.isArray(legacy.book.members) ||
+        !Array.isArray(legacy.records))
+    ) {
       throw new Error("Malformed shared book payload");
     }
     const doc = legacy ? legacyToDoc(legacy) : res.data.doc;
@@ -378,12 +442,19 @@ export function setupBookActions(
   const joinSharedBook = async (
     code: string,
     preview: SharedBookPreview,
-    claimMemberId: string | null
+    claimMemberId: string | null,
   ) => {
     try {
       const existing = books.value.find((b) => b.id === preview.book.id);
       if (existing) {
-        if (!confirm(i18n.global.t("books.joinOverwriteConfirm", { name: existing.name }))) return;
+        if (
+          !confirm(
+            i18n.global.t("books.joinOverwriteConfirm", {
+              name: existing.name,
+            }),
+          )
+        )
+          return;
         records.value = records.value.filter((r) => r.bookId !== existing.id);
         books.value = books.value.filter((b) => b.id !== existing.id);
       }
@@ -395,14 +466,24 @@ export function setupBookActions(
         version: preview.version,
         doc,
         pending: emptyDoc(),
-        ...(preview.legacy ? { base: clone(doc), baseOf: preview.legacyHash } : {}),
+        ...(preview.legacy
+          ? { base: clone(doc), baseOf: preview.legacyHash }
+          : {}),
       };
-      const newBook: Book = { ...preview.book, shareCode: code, isSynced: true };
+      const newBook: Book = {
+        ...preview.book,
+        shareCode: code,
+        isSynced: true,
+      };
       books.value.push(newBook);
-      records.value.push(...preview.records.map((r) => ({ ...r, isSynced: true })));
+      records.value.push(
+        ...preview.records.map((r) => ({ ...r, isSynced: true })),
+      );
 
       if (!findSelfMember(newBook) && claimMemberId) {
-        const claimed = newBook.members.find((m) => m.id === claimMemberId && !m.userId && !m.archived);
+        const claimed = newBook.members.find(
+          (m) => m.id === claimMemberId && !m.userId && !m.archived,
+        );
         // Use the public memberId (never the secret backup id).
         if (claimed) claimed.userId = userProfile.value.memberId;
       }
@@ -428,7 +509,10 @@ export function setupBookActions(
   // =====================
 
   /** Members from editor drafts: trimmed, blank rows dropped, ids kept. */
-  const toMembers = (drafts: MemberDraft[], existing: Member[] = []): Member[] => {
+  const toMembers = (
+    drafts: MemberDraft[],
+    existing: Member[] = [],
+  ): Member[] => {
     const byId = new Map(existing.map((m) => [m.id, m]));
     return drafts
       .map((d) => ({ ...d, name: d.name.trim() }))
@@ -439,7 +523,8 @@ export function setupBookActions(
         // draft's pre-generated id.
         // A draft may also claim an unlinked member as the user ("this is me").
         if (current) {
-          const claimed = !current.userId && d.userId ? { userId: d.userId } : {};
+          const claimed =
+            !current.userId && d.userId ? { userId: d.userId } : {};
           return { ...current, name: d.name, ...claimed };
         }
         const m: Member = { id: d.id, name: d.name };
@@ -448,7 +533,11 @@ export function setupBookActions(
       });
   };
 
-  const createBook = async (name: string, drafts: MemberDraft[], currency: CurrencyCode) => {
+  const createBook = async (
+    name: string,
+    drafts: MemberDraft[],
+    currency: CurrencyCode,
+  ) => {
     if (!name.trim()) return null;
     const book: Book = {
       id: crypto.randomUUID(),
@@ -472,43 +561,52 @@ export function setupBookActions(
   };
 
   /** Local (unshared) book: drop removed members and repoint what referenced them. */
-  const removeMembersLocally = (bookId: string, removed: Member[], kept: Member[]) => {
+  const removeMembersLocally = (
+    bookId: string,
+    removed: Member[],
+    kept: Member[],
+  ) => {
     if (!removed.length) return;
     const keptIds = kept.map((m) => m.id);
     const fallbackId = keptIds[0] || "";
     pendingDeleteMemberIds.value.push(...removed.map((m) => m.id));
     // The editor blocks removing a member any record involves; this only
     // catches legacy data.
-    records.value.filter((r) => r.bookId === bookId).forEach((r) => {
-      let changed = false;
-      // Income records have no payer (""); leave them alone.
-      if (r.paidById && !keptIds.includes(r.paidById)) {
-        r.paidById = fallbackId;
-        changed = true;
-      }
-      if (!r.splitAmongIds.includes("all")) {
-        const filtered = r.splitAmongIds.filter((id) => keptIds.includes(id));
-        if (filtered.length !== r.splitAmongIds.length) {
-          r.splitAmongIds = filtered.length > 0 ? filtered : fallbackId ? [fallbackId] : [];
+    records.value
+      .filter((r) => r.bookId === bookId)
+      .forEach((r) => {
+        let changed = false;
+        // Income records have no payer (""); leave them alone.
+        if (r.paidById && !keptIds.includes(r.paidById)) {
+          r.paidById = fallbackId;
           changed = true;
         }
-      }
-      if (r.splitCustomAmounts) {
-        const gone = Object.keys(r.splitCustomAmounts).filter((id) => !keptIds.includes(id));
-        if (gone.length) {
-          gone.forEach((id) => delete r.splitCustomAmounts![id]);
-          changed = true;
+        if (!r.splitAmongIds.includes("all")) {
+          const filtered = r.splitAmongIds.filter((id) => keptIds.includes(id));
+          if (filtered.length !== r.splitAmongIds.length) {
+            r.splitAmongIds =
+              filtered.length > 0 ? filtered : fallbackId ? [fallbackId] : [];
+            changed = true;
+          }
         }
-      }
-      if (changed) r.isSynced = false;
-    });
+        if (r.splitCustomAmounts) {
+          const gone = Object.keys(r.splitCustomAmounts).filter(
+            (id) => !keptIds.includes(id),
+          );
+          if (gone.length) {
+            gone.forEach((id) => delete r.splitCustomAmounts![id]);
+            changed = true;
+          }
+        }
+        if (changed) r.isSynced = false;
+      });
   };
 
   const updateBook = async (
     bookId: string,
     name: string,
     drafts: MemberDraft[],
-    currency?: CurrencyCode
+    currency?: CurrencyCode,
   ) => {
     const book = books.value.find((b) => b.id === bookId);
     if (!book || !name.trim()) return null;
@@ -546,7 +644,9 @@ export function setupBookActions(
   const deleteBook = async (bookId: string) => {
     // Add book and its records to tombstones
     pendingDeleteBookIds.value.push(bookId);
-    const bookRecordIds = records.value.filter((r) => r.bookId === bookId).map((r) => r.id);
+    const bookRecordIds = records.value
+      .filter((r) => r.bookId === bookId)
+      .map((r) => r.id);
     pendingDeleteRecordIds.value.push(...bookRecordIds);
 
     // Leaving a shared book locally must not delete its records for everyone:
@@ -576,11 +676,18 @@ export function setupBookActions(
     await save();
   };
 
-  const updateRecord = async (id: string, record: Partial<Omit<RecordItem, "id" | "bookId">>) => {
+  const updateRecord = async (
+    id: string,
+    record: Partial<Omit<RecordItem, "id" | "bookId">>,
+  ) => {
     const idx = records.value.findIndex((r) => r.id === id);
     if (idx !== -1) {
       const bookId = records.value[idx].bookId;
-      records.value[idx] = { ...records.value[idx], ...record, isSynced: false };
+      records.value[idx] = {
+        ...records.value[idx],
+        ...record,
+        isSynced: false,
+      };
       syncSharedBook(bookId); // stage before the await (see updateBook)
       await save();
     }
@@ -601,31 +708,41 @@ export function setupBookActions(
   // =====================
 
   const totalExpense = computed(() =>
-    currentBookRecords.value.filter((r) => r.type === "expense").reduce((s, r) => s + r.amount, 0)
+    currentBookRecords.value
+      .filter((r) => r.type === "expense")
+      .reduce((s, r) => s + r.amount, 0),
   );
   const totalIncome = computed(() =>
-    currentBookRecords.value.filter((r) => r.type === "income").reduce((s, r) => s + r.amount, 0)
+    currentBookRecords.value
+      .filter((r) => r.type === "income")
+      .reduce((s, r) => s + r.amount, 0),
   );
   const balance = computed(() => totalIncome.value - totalExpense.value);
 
   const memberStats = computed(() =>
     currentBook.value
-      ? calcMemberStats(currentBook.value.members, currentBookRecords.value, currentBookCurrency.value)
-      : []
+      ? calcMemberStats(
+          currentBook.value.members,
+          currentBookRecords.value,
+          currentBookCurrency.value,
+        )
+      : [],
   );
 
   const settlements = computed((): Settlement[] =>
-    currentBook.value ? calcSettlements(memberStats.value) : []
+    currentBook.value ? calcSettlements(memberStats.value) : [],
   );
 
-  const getMemberCategoryBreakdown = (memberId: string): MemberCategoryBreakdown[] => {
+  const getMemberCategoryBreakdown = (
+    memberId: string,
+  ): MemberCategoryBreakdown[] => {
     if (!currentBook.value) return [];
     const allMemberIds = currentBook.value.members.map((m) => m.id);
     return calcMemberCategoryBreakdown(
       currentBookRecords.value,
       allMemberIds,
       memberId,
-      decimalsOf(currentBookCurrency.value)
+      decimalsOf(currentBookCurrency.value),
     );
   };
 

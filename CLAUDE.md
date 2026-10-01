@@ -31,8 +31,8 @@ GIN_MODE=release go run main.go
 
 **`npm run lint` caveat**: it prettier-checks a hardcoded allowlist of ~11 files
 (plus `tests/*.ts`), not the project. The allowlist currently passes, so a
-failure there is yours. Files outside it (most components, `books.ts`,
-`tracker.ts`) are not prettier-formatted — do not reformat them wholesale in an
+failure there is yours. Files outside it (most components) are not
+prettier-formatted — do not reformat them wholesale in an
 unrelated change; the diff will bury the real edit. New files should be
 prettier-clean: `npx prettier --write <file>`.
 

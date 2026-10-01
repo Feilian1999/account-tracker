@@ -1,7 +1,19 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import type { Book, RecordItem, PersonalRecord, UserProfile, Category, RecordTemplate } from "./types";
-import { loadFromStorage, saveToStorage, STORAGE_KEYS, migrateFromLocalStorage } from "./storage";
+import type {
+  Book,
+  RecordItem,
+  PersonalRecord,
+  UserProfile,
+  Category,
+  RecordTemplate,
+} from "./types";
+import {
+  loadFromStorage,
+  saveToStorage,
+  STORAGE_KEYS,
+  migrateFromLocalStorage,
+} from "./storage";
 import { setupUserActions } from "./user";
 import { setupCategoryActions } from "./categories";
 import { setupBookActions } from "./books";
@@ -13,7 +25,17 @@ import type { SharedDocState } from "../utils/crdt";
 import { clockState, initClock, type ClockState } from "../utils/hlc";
 
 // Re-export types & constants for backward compatibility
-export type { Member, Book, RecordItem, PersonalRecord, RecordTemplate, UserProfile, Category, Settlement, CurrencyCode } from "./types";
+export type {
+  Member,
+  Book,
+  RecordItem,
+  PersonalRecord,
+  RecordTemplate,
+  UserProfile,
+  Category,
+  Settlement,
+  CurrencyCode,
+} from "./types";
 export { defaultCategories } from "./constants";
 
 export const useTrackerStore = defineStore("tracker", () => {
@@ -26,10 +48,20 @@ export const useTrackerStore = defineStore("tracker", () => {
   const currentBookId = ref<string | null>(null);
   const personalRecords = ref<PersonalRecord[]>([]);
 
-  const userProfileDefaults: UserProfile = { id: "", memberId: "", name: "", theme: "sheep", animations: true };
+  const userProfileDefaults: UserProfile = {
+    id: "",
+    memberId: "",
+    name: "",
+    theme: "sheep",
+    animations: true,
+  };
   // Pre-initialize theme from localStorage to prevent flash
-  const initialTheme = (localStorage.getItem("account-tracker-theme") as any) || "sheep";
-  const userProfile = ref<UserProfile>({ ...userProfileDefaults, theme: initialTheme });
+  const initialTheme =
+    (localStorage.getItem("account-tracker-theme") as any) || "sheep";
+  const userProfile = ref<UserProfile>({
+    ...userProfileDefaults,
+    theme: initialTheme,
+  });
 
   const customCategories = ref<Category[]>([]);
   const deletedCategoryIds = ref<string[]>([]);
@@ -97,7 +129,10 @@ export const useTrackerStore = defineStore("tracker", () => {
         loadFromStorage(STORAGE_KEYS.PENDING_DELETE_CUSTOM_CATEGORIES, []),
         loadFromStorage(STORAGE_KEYS.PENDING_DELETE_TEMPLATES, []),
         loadFromStorage(STORAGE_KEYS.PENDING_DELETE_MEMBERS, []),
-        loadFromStorage<Record<string, SharedDocState>>(STORAGE_KEYS.SHARED_DOCS, {}),
+        loadFromStorage<Record<string, SharedDocState>>(
+          STORAGE_KEYS.SHARED_DOCS,
+          {},
+        ),
         loadFromStorage<ClockState | null>(STORAGE_KEYS.CRDT_CLOCK, null),
       ]);
 
@@ -133,9 +168,11 @@ export const useTrackerStore = defineStore("tracker", () => {
       recordTemplates.value = loadedTemplates || [];
 
       pendingDeleteRecordIds.value = loadedPendingDeleteRecords || [];
-      pendingDeletePersonalRecordIds.value = loadedPendingDeletePersonalRecords || [];
+      pendingDeletePersonalRecordIds.value =
+        loadedPendingDeletePersonalRecords || [];
       pendingDeleteBookIds.value = loadedPendingDeleteBooks || [];
-      pendingDeleteCustomCategoryIds.value = loadedPendingDeleteCustomCategories || [];
+      pendingDeleteCustomCategoryIds.value =
+        loadedPendingDeleteCustomCategories || [];
       pendingDeleteTemplateIds.value = loadedPendingDeleteTemplates || [];
       pendingDeleteMemberIds.value = loadedPendingDeleteMembers || [];
       sharedDocs.value = loadedSharedDocs || {};
@@ -165,12 +202,30 @@ export const useTrackerStore = defineStore("tracker", () => {
       saveToStorage(STORAGE_KEYS.USER_PROFILE, userProfile.value),
       saveToStorage(STORAGE_KEYS.CUSTOM_CATEGORIES, customCategories.value),
       saveToStorage(STORAGE_KEYS.TEMPLATES, recordTemplates.value),
-      saveToStorage(STORAGE_KEYS.PENDING_DELETE_RECORDS, pendingDeleteRecordIds.value),
-      saveToStorage(STORAGE_KEYS.PENDING_DELETE_PERSONAL_RECORDS, pendingDeletePersonalRecordIds.value),
-      saveToStorage(STORAGE_KEYS.PENDING_DELETE_BOOKS, pendingDeleteBookIds.value),
-      saveToStorage(STORAGE_KEYS.PENDING_DELETE_CUSTOM_CATEGORIES, pendingDeleteCustomCategoryIds.value),
-      saveToStorage(STORAGE_KEYS.PENDING_DELETE_TEMPLATES, pendingDeleteTemplateIds.value),
-      saveToStorage(STORAGE_KEYS.PENDING_DELETE_MEMBERS, pendingDeleteMemberIds.value),
+      saveToStorage(
+        STORAGE_KEYS.PENDING_DELETE_RECORDS,
+        pendingDeleteRecordIds.value,
+      ),
+      saveToStorage(
+        STORAGE_KEYS.PENDING_DELETE_PERSONAL_RECORDS,
+        pendingDeletePersonalRecordIds.value,
+      ),
+      saveToStorage(
+        STORAGE_KEYS.PENDING_DELETE_BOOKS,
+        pendingDeleteBookIds.value,
+      ),
+      saveToStorage(
+        STORAGE_KEYS.PENDING_DELETE_CUSTOM_CATEGORIES,
+        pendingDeleteCustomCategoryIds.value,
+      ),
+      saveToStorage(
+        STORAGE_KEYS.PENDING_DELETE_TEMPLATES,
+        pendingDeleteTemplateIds.value,
+      ),
+      saveToStorage(
+        STORAGE_KEYS.PENDING_DELETE_MEMBERS,
+        pendingDeleteMemberIds.value,
+      ),
       saveToStorage(STORAGE_KEYS.SHARED_DOCS, sharedDocs.value),
       saveToStorage(STORAGE_KEYS.CRDT_CLOCK, clockState()),
     ]);
@@ -180,7 +235,11 @@ export const useTrackerStore = defineStore("tracker", () => {
   //  Compose Sub-modules
   // =====================
   const userActions = setupUserActions(userProfile, save);
-  const categoryActions = setupCategoryActions(customCategories, deletedCategoryIds, pendingDeleteCustomCategoryIds);
+  const categoryActions = setupCategoryActions(
+    customCategories,
+    deletedCategoryIds,
+    pendingDeleteCustomCategoryIds,
+  );
   const bookActions = setupBookActions(
     books,
     records,
@@ -192,7 +251,11 @@ export const useTrackerStore = defineStore("tracker", () => {
     pendingDeleteMemberIds,
     save,
   );
-  const baseCurrencyActions = setupBaseCurrencyActions(userProfile, personalRecords, save);
+  const baseCurrencyActions = setupBaseCurrencyActions(
+    userProfile,
+    personalRecords,
+    save,
+  );
   const personalActions = setupPersonalActions(
     personalRecords,
     bookActions.memberStats,
@@ -202,7 +265,11 @@ export const useTrackerStore = defineStore("tracker", () => {
     pendingDeletePersonalRecordIds,
     save,
   );
-  const templateActions = setupTemplateActions(recordTemplates, pendingDeleteTemplateIds, save);
+  const templateActions = setupTemplateActions(
+    recordTemplates,
+    pendingDeleteTemplateIds,
+    save,
+  );
   const cloudSyncActions = setupCloudSyncActions(
     userProfile,
     books,
