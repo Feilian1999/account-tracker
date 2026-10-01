@@ -43,6 +43,8 @@ export default {
     },
   },
   home: {
+    shareLabel: "收入佔 {income}%，支出佔 {expense}%",
+    shareEmpty: "這段期間沒有收支",
     personalAccount: "個人帳戶",
     importFromBook: "從其他帳本匯入花費",
     quickActions: "快速操作",
@@ -60,6 +62,9 @@ export default {
     importConfirm: "將「{member}」在「{book}」應負擔的 {amount} 匯入個人帳戶？",
   },
   books: {
+    actionsMenu: "帳本選項",
+    shareAction: "分享帳本",
+    deleteBook: "刪除帳本",
     currency: "帳本幣別",
     currencyLocked: "帳本已有記錄，無法更改幣別",
     title: "帳本",

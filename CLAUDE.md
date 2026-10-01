@@ -92,7 +92,8 @@ src/
 │   ├── useToast.ts         # toast queue
 │   ├── useEscapeKey.ts     # shared Escape stack — closes only the TOP overlay
 │   ├── useFxInput.ts       # record-form currency + rate state (fetch, pin, build)
-│   └── usePrimaryAction.ts # Ctrl/⌘+Enter registry — highest active priority wins
+│   ├── usePrimaryAction.ts # Ctrl/⌘+Enter registry — highest active priority wins
+│   └── useFitText.ts       # shrink a total's font to fit one line (wraps only at min)
 ├── utils/
 │   ├── api.ts              # axios instance + every endpoint call
 │   ├── category.ts         # colorMap, category icon/colour lookup, date formatting
@@ -456,6 +457,15 @@ locally.
   `MonthSelector`'s picker) hand-roll `Teleport` + `role="dialog"` instead of
   using `BaseBottomSheet`; they still register with `useEscapeKey`. Confirms and
   prompts use native `confirm()` / `prompt()`.
+- **Totals are never truncated.** Home's header is `IncomeExpenseSummary`:
+  total income (left) and expense (right), sized by `useFitText`, over
+  `WaterBar`: income fills from the left to its share and meets expense at a
+  slanted, flowing water surface — a sine strip (`utils/waterBar.ts`) that
+  loops by exactly one wavelength, transform-only, with a glint passing
+  through the water. The surface rests when
+  animations are off or the OS asks for reduced motion. Statistics uses `SummaryBar`
+  (one row per total); a book shows its total expense only, and its actions
+  (share, settle, edit, delete) sit in one header menu so the title has room. Chart axes use compact notation.
 - **Safe areas**: bottom-anchored UI uses `env(safe-area-inset-bottom)` (see the
   `pb-safe` pattern in the sheets and `BottomNav`).
 - Prefer semantic interactive elements: a tappable row is a `<button

@@ -34,46 +34,62 @@
             <span v-if="book.shareCode" class="material-symbols-outlined shrink-0 text-sm opacity-60" :title="$t('books.share.title')" aria-hidden="true">cloud_done</span>
           </h1>
         </div>
-        <div class="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+        <!-- One menu instead of four icons, so the title keeps the width. -->
+        <div class="relative ml-auto shrink-0">
           <button
+            ref="menuButton"
             type="button"
-            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20 text-white shadow-sm transition-colors hover:bg-white/30 disabled:cursor-wait disabled:opacity-70"
-            :aria-label="$t('books.share.title')"
+            class="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white shadow-sm transition-colors hover:bg-white/30"
+            :aria-label="$t('books.actionsMenu')"
+            aria-haspopup="menu"
+            :aria-expanded="menuOpen"
+            :aria-controls="menuId"
             :aria-busy="sharing"
-            :disabled="sharing"
-            @click="$emit('share')"
+            @click="menuOpen ? closeMenu() : openMenu()"
           >
+            <!-- Sharing runs after the menu closes: show it on the button. -->
             <span
-              class="material-symbols-outlined text-[18px]"
+              class="material-symbols-outlined"
               :class="{ 'animate-spin': sharing }"
+              style="font-size: 22px"
               aria-hidden="true"
-              >{{ sharing ? "progress_activity" : "cloud_upload" }}</span
+              >{{ sharing ? "progress_activity" : "more_horiz" }}</span
             >
           </button>
-          <button
-            type="button"
-            class="flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-white/20 px-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-white/30"
-            @click="$emit('settle')"
+
+          <!-- Tap outside to close. -->
+          <!-- Tap outside to close — above the add button (z-40) and the
+               bottom nav (z-50), so tapping those closes the menu first. -->
+          <div v-if="menuOpen" class="fixed inset-0 z-[55]" aria-hidden="true" @click="closeMenu()"></div>
+          <ul
+            v-if="menuOpen"
+            :id="menuId"
+            ref="menuList"
+            role="menu"
+            :aria-label="$t('books.actionsMenu')"
+            class="absolute top-11 right-0 z-[56] w-48 overflow-hidden rounded-2xl bg-white py-1 text-gray-700 shadow-xl ring-1 ring-black/5 dark:bg-gray-800 dark:text-gray-200 dark:ring-white/10"
+            @keydown="onMenuKeydown"
           >
-            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">receipt_long</span>
-            <span class="hidden sm:inline">{{ $t("books.settle") }}</span>
-          </button>
-          <button
-            type="button"
-            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20 text-white shadow-sm transition-colors hover:bg-white/30"
-            :aria-label="$t('books.editBook')"
-            @click="$emit('edit')"
-          >
-            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">edit</span>
-          </button>
-          <button
-            type="button"
-            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-red-400/50 hover:text-white"
-            :aria-label="$t('common.delete')"
-            @click="confirmDelete"
-          >
-            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
-          </button>
+            <li v-for="item in menuItems" :key="item.key" role="none">
+              <button
+                type="button"
+                role="menuitem"
+                class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-bold transition-colors hover:bg-gray-50 focus:bg-gray-50 focus:outline-none disabled:cursor-wait disabled:opacity-60 dark:hover:bg-gray-700 dark:focus:bg-gray-700"
+                :class="item.danger ? 'text-red-600 dark:text-red-400' : ''"
+                :disabled="item.busy"
+                @click="choose(item.run)"
+              >
+                <span
+                  class="material-symbols-outlined"
+                  :class="{ 'animate-spin': item.busy }"
+                  style="font-size: 20px"
+                  aria-hidden="true"
+                  >{{ item.busy ? "progress_activity" : item.icon }}</span
+                >
+                {{ item.label }}
+              </button>
+            </li>
+          </ul>
         </div>
       </div>
 
@@ -91,15 +107,12 @@
         </li>
       </ul>
 
-      <div class="mt-4">
-        <SummaryBar
-          :currency="bookCurrency"
-          :totalExpense="filteredBookExpense"
-          :totalIncome="filteredBookIncome"
-          :balance="filteredBookBalance"
-          labelClass="text-blue-200"
-          valueClass="text-base"
-        />
+      <!-- A shared book is about what the group spent: total expense only. -->
+      <div class="mt-4 rounded-2xl bg-white/15 px-4 py-3">
+        <p class="text-xs text-blue-200">{{ $t("common.totalExpense") }}</p>
+        <p ref="expenseEl" class="expense-total font-bold text-white tabular-nums">
+          {{ formatMoney(filteredBookExpense, bookCurrency, locale) }}
+        </p>
       </div>
     </header>
 
@@ -227,17 +240,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, nextTick, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { DateFilter } from "../DateFilterBar.vue";
 import CategoryIcon from "../CategoryIcon.vue";
 import DateFilterBar from "../DateFilterBar.vue";
 import DraggableFab from "../DraggableFab.vue";
-import SummaryBar from "../SummaryBar.vue";
+import { useEscapeKey } from "../../composables/useEscapeKey";
+import { useFitText } from "../../composables/useFitText";
 import RecordAmount from "../RecordAmount.vue";
 import MemberAvatar from "../MemberAvatar.vue";
 import { activeMembers, isSelf } from "../../utils/member";
-import { currencyOf } from "../../utils/currency";
+import { currencyOf, formatMoney } from "../../utils/currency";
 import { useTrackerStore } from "../../stores/tracker";
 import { formatDate, getCategoryBg, getCategoryIcon } from "../../utils/category";
 
@@ -257,7 +271,7 @@ const emit = defineEmits<{
 }>();
 
 const store = useTrackerStore();
-const { t, te } = useI18n();
+const { t, te, locale } = useI18n();
 
 const book = computed(() => store.books.find((candidate) => candidate.id === props.bookId));
 const bookCurrency = computed(() => currencyOf(book.value?.currency));
@@ -299,13 +313,80 @@ const filteredBookRecords = computed(() => {
 const filteredBookExpense = computed(() =>
   filteredBookRecords.value.filter((record) => record.type === "expense").reduce((sum, record) => sum + record.amount, 0),
 );
-const filteredBookIncome = computed(() =>
-  filteredBookRecords.value.filter((record) => record.type === "income").reduce((sum, record) => sum + record.amount, 0),
-);
-const filteredBookBalance = computed(() => filteredBookIncome.value - filteredBookExpense.value);
 
 const getMemberName = (id: string) =>
   book.value?.members.find((member) => member.id === id)?.name ?? t("books.unknown");
+
+// ---- Actions menu ----
+const menuOpen = ref(false);
+const menuId = `book-actions-${props.bookId}`;
+const menuButton = ref<HTMLButtonElement>();
+const menuList = ref<HTMLUListElement>();
+
+const menuItems = computed(() => [
+  {
+    key: "share",
+    icon: "cloud_upload",
+    label: t("books.shareAction"),
+    busy: !!props.sharing,
+    run: () => emit("share"),
+  },
+  { key: "settle", icon: "receipt_long", label: t("books.settle"), run: () => emit("settle") },
+  { key: "edit", icon: "edit", label: t("books.editBook"), run: () => emit("edit") },
+  { key: "delete", icon: "delete", label: t("books.deleteBook"), danger: true, run: () => confirmDelete() },
+]);
+
+const menuButtons = () =>
+  Array.from(menuList.value?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? []);
+
+const enabledItems = () => menuButtons().filter((b) => !b.disabled);
+
+const openMenu = async () => {
+  menuOpen.value = true;
+  await nextTick();
+  // The first item (share) is disabled while sharing: focus the first usable one.
+  enabledItems()[0]?.focus();
+};
+const closeMenu = (refocus = true) => {
+  menuOpen.value = false;
+  if (refocus) menuButton.value?.focus();
+};
+// Focus returns to the menu button; an action that opens a sheet or dialog
+// takes it from there.
+const choose = (run: () => void) => {
+  closeMenu();
+  run();
+};
+// Escape (and the Back button, via the same stack) closes the menu first.
+useEscapeKey(menuOpen, () => closeMenu());
+
+/** Up/Down/Home/End move between items, Tab closes the menu. */
+const onMenuKeydown = (event: KeyboardEvent) => {
+  const items = enabledItems();
+  const i = items.indexOf(document.activeElement as HTMLButtonElement);
+  const go = (n: number) => {
+    event.preventDefault();
+    items[(n + items.length) % items.length]?.focus();
+  };
+  if (event.key === "ArrowDown") go(i + 1);
+  else if (event.key === "ArrowUp") go(i < 0 ? items.length - 1 : i - 1);
+  else if (event.key === "Home") go(0);
+  else if (event.key === "End") go(items.length - 1);
+  else if (event.key === "Tab") {
+    // Leaving the menu: close it and land back on its button, rather than on
+    // an item that is about to be removed.
+    event.preventDefault();
+    closeMenu();
+  }
+};
+
+// The total stays on one line, shrinking for large amounts.
+const expenseEl = ref<HTMLElement>();
+useFitText(
+  expenseEl,
+  () => formatMoney(filteredBookExpense.value, bookCurrency.value, locale.value),
+  { max: 28, min: 16 },
+);
 
 const confirmDelete = async () => {
   if (!book.value) return;
@@ -319,3 +400,12 @@ const handleDeleteRecord = async (id: string) => {
   await store.deleteRecord(id);
 };
 </script>
+
+<style scoped>
+/* Sized by useFitText (28px down to 16px); wraps only if even that overflows. */
+.expense-total {
+  font-size: 28px;
+  overflow-wrap: anywhere;
+  line-height: 1.15;
+}
+</style>

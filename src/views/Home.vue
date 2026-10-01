@@ -6,13 +6,11 @@
       class="rounded-b-3xl bg-gradient-to-br from-indigo-500 to-purple-600 px-6 pt-10 pb-8 text-white shadow-lg"
     >
       <h1 class="sr-only">{{ $t("home.personalRecords") }}</h1>
-      <SummaryBar
+      <IncomeExpenseSummary
         :currency="store.baseCurrency"
-        :totalExpense="filteredExpense"
         :totalIncome="filteredIncome"
-        :balance="filteredBalance"
+        :totalExpense="filteredExpense"
         labelClass="text-violet-200"
-        valueClass="text-lg"
       />
     </header>
 
@@ -295,7 +293,7 @@ import { computed, ref } from "vue";
 import CategoryIcon from "../components/CategoryIcon.vue";
 import DraggableFab from "../components/DraggableFab.vue";
 import MonthSelector from "../components/MonthSelector.vue";
-import SummaryBar from "../components/SummaryBar.vue";
+import IncomeExpenseSummary from "../components/home/IncomeExpenseSummary.vue";
 import TemplateSettingsModal from "../components/TemplateSettingsModal.vue";
 import AddPersonalRecordSheet from "../components/home/AddPersonalRecordSheet.vue";
 import DailyRecordGroup from "../components/home/DailyRecordGroup.vue";
@@ -381,9 +379,6 @@ const retryConversion = async () => {
     retrying.value = false;
   }
 };
-const filteredBalance = computed(
-  () => filteredIncome.value - filteredExpense.value,
-);
 
 const openNewRecord = () => {
   showFilterMenu.value = false;

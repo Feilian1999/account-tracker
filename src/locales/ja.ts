@@ -43,6 +43,8 @@ export default {
     },
   },
   home: {
+    shareLabel: "収入 {income}%、支出 {expense}%",
+    shareEmpty: "この期間の収支はありません",
     personalAccount: "個人口座",
     importFromBook: "他の帳簿から費用をインポート",
     quickActions: "クイック操作",
@@ -60,6 +62,9 @@ export default {
     importConfirm: "「{member}」の「{book}」での負担分 {amount} を個人口座にインポートしますか？",
   },
   books: {
+    actionsMenu: "帳簿の操作",
+    shareAction: "帳簿を共有",
+    deleteBook: "帳簿を削除",
     currency: "帳簿の通貨",
     currencyLocked: "記録がある帳簿の通貨は変更できません",
     title: "帳簿",

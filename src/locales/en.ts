@@ -43,6 +43,8 @@ export default {
     },
   },
   home: {
+    shareLabel: "Income {income}%, expenses {expense}%",
+    shareEmpty: "No income or expenses in this period",
     personalAccount: "Personal Account",
     importFromBook: "Import from Book",
     quickActions: "Quick Actions",
@@ -60,6 +62,9 @@ export default {
     importConfirm: "Import {member}'s share of {amount} from \"{book}\" to personal account?",
   },
   books: {
+    actionsMenu: "Book actions",
+    shareAction: "Share book",
+    deleteBook: "Delete book",
     currency: "Book currency",
     currencyLocked: "This book already has records, so its currency can't be changed",
     title: "Books",
