@@ -14,6 +14,8 @@ locally generated UUID.
   category breakdowns
 - **Members** managed one per row with avatars; friends join with an 8-character
   share code and pick which member they are
+- **Conflict-free sync** for shared books: edits made at the same time, or
+  offline on several phones, merge instead of overwriting each other (a CRDT)
 - **Multiple currencies** — TWD, JPY, USD, THB, VND, CNY, EUR, KRW, GBP — with the
   day's exchange rate fetched automatically (editable, cached for offline use).
   Each book has its own currency; personal records total in a switchable base
