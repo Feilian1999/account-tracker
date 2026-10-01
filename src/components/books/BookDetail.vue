@@ -79,7 +79,7 @@
 
       <ul class="flex flex-wrap gap-2" :aria-label="$t('members.title')">
         <li
-          v-for="member in book.members"
+          v-for="member in activeMembers(book.members)"
           :key="member.id"
           class="flex items-center gap-1.5 rounded-full bg-white/20 py-0.5 pr-2.5 pl-0.5 text-xs font-medium text-white"
         >
@@ -236,7 +236,7 @@ import DraggableFab from "../DraggableFab.vue";
 import SummaryBar from "../SummaryBar.vue";
 import RecordAmount from "../RecordAmount.vue";
 import MemberAvatar from "../MemberAvatar.vue";
-import { isSelf } from "../../utils/member";
+import { activeMembers, isSelf } from "../../utils/member";
 import { currencyOf } from "../../utils/currency";
 import { useTrackerStore } from "../../stores/tracker";
 import { formatDate, getCategoryBg, getCategoryIcon } from "../../utils/category";

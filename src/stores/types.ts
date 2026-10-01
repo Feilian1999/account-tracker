@@ -59,6 +59,12 @@ export interface Member {
   id: string;
   name: string;
   userId?: string; // Optional link to actual user ID (even for anonymous users)
+  /**
+   * Removed from a shared book. A CRDT can't truly delete, and a concurrent
+   * record may still reference the member, so they stay for settlement but are
+   * hidden from pickers and lists (see activeMembers).
+   */
+  archived?: boolean;
 }
 
 export interface Book {

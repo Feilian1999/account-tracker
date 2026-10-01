@@ -54,7 +54,7 @@ import { computed, nextTick, ref, toRef, useId, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { CurrencyCode } from "../../stores/types";
 import { CURRENCY_CODES, currencyOf } from "../../utils/currency";
-import { validateMembers, type MemberDraft } from "../../utils/member";
+import { activeMembers, validateMembers, type MemberDraft } from "../../utils/member";
 import { useTrackerStore } from "../../stores/tracker";
 import BaseBottomSheet from "../BaseBottomSheet.vue";
 import BaseButton from "../BaseButton.vue";
@@ -109,7 +109,8 @@ watch(
       form.value = {
         name: book.name,
         currency: currencyOf(book.currency),
-        members: book.members.map((m) => ({ id: m.id, name: m.name, userId: m.userId })),
+        // Archived members are kept by updateBook, not edited here.
+        members: activeMembers(book.members).map((m) => ({ id: m.id, name: m.name, userId: m.userId })),
       };
       return;
     }

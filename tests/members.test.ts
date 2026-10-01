@@ -8,12 +8,16 @@ import {
   validateMembers,
 } from "../src/utils/member";
 
-const api = vi.hoisted(() => ({
-  shareBookToCloud: vi.fn(),
-  fetchSharedBook: vi.fn(),
-  updateSharedBook: vi.fn(async () => ({ data: { status: "ok" } })),
-}));
-vi.mock("../src/utils/api", () => api);
+vi.mock("../src/utils/api", async () => {
+  const { createFakeServer } = await import("./helpers/fakeSharedServer");
+  const server = createFakeServer();
+  return { ...server.api, __server: server };
+});
+import * as api from "../src/utils/api";
+type Server = ReturnType<
+  typeof import("./helpers/fakeSharedServer").createFakeServer
+>;
+const server = (api as unknown as { __server: Server }).__server;
 
 import { setupBookActions } from "../src/stores/books";
 
@@ -48,6 +52,7 @@ const setup = (book: Book, records: RecordItem[] = []) => {
     recs,
     ref<string | null>(null),
     ref({ ...profile }),
+    ref({}),
     ref<string[]>([]),
     ref<string[]>([]),
     pendingDeleteMemberIds,
@@ -165,77 +170,72 @@ describe("book members in the store", () => {
 });
 
 describe("joining a shared book", () => {
-  const shared = () => ({
-    book: {
-      id: "shared-book",
-      name: "Shared",
-      createdAt: "2026-09-30T00:00:00Z",
-      members: [
-        { id: "x", name: "Xavier", userId: "xaviers-public-id" },
-        { id: "y", name: "Allen" },
-      ],
-    },
-    records: [],
-  });
+  let n = 0;
+  /** A space with Xavier (linked to someone else) and an unlinked "Allen". */
+  const seed = (allenUserId?: string) => {
+    const code = `JOIN${String(++n).padStart(4, "0")}`;
+    server.seedLegacy(code, {
+      book: {
+        id: `shared-book-${n}`,
+        name: "Shared",
+        createdAt: "2026-09-30T00:00:00Z",
+        members: [
+          { id: "x", name: "Xavier", userId: "xaviers-public-id" },
+          {
+            id: "y",
+            name: "Allen",
+            ...(allenUserId ? { userId: allenUserId } : {}),
+          },
+        ],
+      },
+      records: [],
+    });
+    return code;
+  };
   const emptyBook = (): Book => ({
     id: "local",
     name: "L",
     createdAt: "",
     members: [],
   });
+  const joinedMembers = (store: ReturnType<typeof setup>, code: string) =>
+    store.books.value.find((b) => b.shareCode === code)!.members;
 
   it("never adds a member when joining without claiming one", async () => {
-    api.updateSharedBook.mockClear();
+    const code = seed();
     const store = setup(emptyBook());
-    const joined = await store.joinSharedBook("CODE1234", shared(), null);
-    expect(joined?.members.map((m) => m.id)).toEqual(["x", "y"]);
-    expect(joined?.members.some((m) => m.userId === "my-public-id")).toBe(
-      false,
-    );
-    expect(api.updateSharedBook).not.toHaveBeenCalled();
+    await store.joinSharedBook(code, await store.previewSharedBook(code), null);
+    expect(joinedMembers(store, code).map((m) => m.id)).toEqual(["x", "y"]);
+    expect(
+      joinedMembers(store, code).some((m) => m.userId === "my-public-id"),
+    ).toBe(false);
   });
 
-  it("links the claimed member to the public memberId and pushes it", async () => {
-    api.updateSharedBook.mockClear();
+  it("links the claimed member to the public memberId, on the server too", async () => {
+    const code = seed();
     const store = setup(emptyBook());
-    const joined = await store.joinSharedBook("CODE1234", shared(), "y");
-    expect(joined?.members).toHaveLength(2);
-    expect(joined?.members[1]).toEqual({
+    await store.joinSharedBook(code, await store.previewSharedBook(code), "y");
+    expect(joinedMembers(store, code)[1]).toEqual({
       id: "y",
       name: "Allen",
       userId: "my-public-id",
     });
-    expect(api.updateSharedBook).toHaveBeenCalledOnce();
-  });
-
-  it("keeps the claim when the auto-pull races the push", async () => {
-    // The cloud still has the unclaimed list while our push is in flight.
-    api.fetchSharedBook.mockResolvedValue({ data: shared() });
-    api.updateSharedBook.mockClear();
-    const store = setup(emptyBook());
-    await store.joinSharedBook("CODE1234", shared(), "y");
-    const calls = api.updateSharedBook.mock.calls as unknown as [
-      string,
-      { book: Book },
-    ][];
-    const pushed = calls[0][1].book.members;
-    expect(pushed[1].userId).toBe("my-public-id");
-    expect(
-      store.books.value.find((b) => b.id === "shared-book")?.members[1].userId,
-    ).toBe("my-public-id");
-    api.fetchSharedBook.mockReset();
+    const other = setup(emptyBook());
+    const seen = await other.previewSharedBook(code);
+    expect(seen.book.members[1].userId).toBe("my-public-id");
   });
 
   it("refuses to claim a member someone else already linked", async () => {
+    const code = seed();
     const store = setup(emptyBook());
-    const joined = await store.joinSharedBook("CODE1234", shared(), "x");
-    expect(joined?.members[0].userId).toBe("xaviers-public-id");
+    await store.joinSharedBook(code, await store.previewSharedBook(code), "x");
+    expect(joinedMembers(store, code)[0].userId).toBe("xaviers-public-id");
   });
 
   it("recognises a rejoin by the existing link", async () => {
+    const code = seed("my-public-id");
     const store = setup(emptyBook());
-    const data = shared();
-    data.book.members[1] = { id: "y", name: "Allen", userId: "my-public-id" };
-    expect(store.findSelfMember(data.book)?.id).toBe("y");
+    const preview = await store.previewSharedBook(code);
+    expect(store.findSelfMember(preview.book)?.id).toBe("y");
   });
 });

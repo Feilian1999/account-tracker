@@ -240,45 +240,74 @@ categories reappear). Adding a field to a synced entity means a backend column
 + migration + both handlers, not just a TS type. `original`/`booked`/`fx` are
 opaque JSONB to the backend, so new keys *inside* them round-trip for free.
 
-### Shared books — automatic, merge
+### Shared books — CRDT (`utils/crdt.ts`, `utils/hlc.ts`, `/api/shared/v2`)
 
-`POST /api/shared/share`, `GET|PUT /api/shared/{code}`, keyed by share code.
-Push is debounced **300ms per book** (a single shared timer previously let one
-book cancel another's pending sync). The backend **merges**: records unioned by
-id, ids in `deletedIds` removed, members unioned by id — except ids in
-`deletedMemberIds`, which are removed the same way. Member removal has no
-implicit path: the backend never drops a member from the union on its own, so
-`deletedMemberIds` must be sent explicitly (mirrors `deletedIds` for records).
+Each shared book has a **replica doc** in `sharedDocs[bookId]` (tracker ref,
+`STORAGE_KEYS.SHARED_DOCS`): `{code, version, doc, pending, base?}`. A doc is
+entities (`book`, `members[id]`, `records[id]`) made of immutable fields `f`
+and last-writer-wins registers `r: {name: {v, t}}`; `t` is a hybrid logical
+clock string (`utils/hlc.ts`, node id per device in `STORAGE_KEYS.CRDT_CLOCK`)
+compared as a plain string. Merge = per register, the larger `t` wins; `f`
+keys are first-writer-wins. It is commutative, associative and idempotent, so
+there is no "last push wins": order of arrival doesn't matter.
 
-`pullSharedBook` invariants — both exist to prevent data loss, don't "simplify"
-them away:
+Invariants — each exists because breaking it lost data before:
 
-1. Cloud `name`/`members` are adopted only when the book has no pending local
-   edit (`isSynced !== false`), so a pull can't revert a rename awaiting push.
-   When there *is* a pending edit, cloud members the device doesn't have are
-   still unioned in — the incoming records may be paid by them, and a record
-   whose `paidById` matches no member breaks settlement and hard-fails the whole
-   UUID backup (`records.paid_by_id` is an FK). Either way, members tombstoned
-   in `pendingDeleteMemberIds` are filtered out first, so a pull can't resurrect
-   a deletion still in flight.
-2. Local unsynced records win over the cloud copy of the same id, and tombstoned
-   ids are filtered out of the incoming set.
+- **Local state is always `materialize(doc)`.** A mutation is staged into the
+  doc synchronously (`syncSharedBook` → `stageLocal`, which diffs the local
+  book/records against the doc and stamps what changed) before the 300ms
+  debounced send, so a pull can't wipe an unsent edit. Never write a shared
+  book's records without going through the store actions.
+- **Registers are grouped by invariant.** A record's `$money` register holds
+  type, amount, currency fields, payer and split together, so concurrent edits
+  can't merge into a split that doesn't sum to the amount; `category`, `date`,
+  `note` merge independently. Keep new money-related fields in `$money`
+  (`MONEY_KEYS`).
+- **Nothing is deleted.** A deleted record is `deleted: true` forever (a stale
+  device can't resurrect it); a removed member is `archived: true` and stays in
+  `book.members` (a concurrent record may involve them — settlement still
+  counts them). UI lists use `activeMembers()`. Leaving a shared book
+  (`deleteBook`) only drops the local replica, never stages deletions.
+- **Never drop a replica on a sync error**: `pending` is the only copy of
+  unsent edits. And compare replicas with `toRaw` — `sharedDocs` is reactive,
+  so a state read back from it is a proxy, never `===` the object stored.
+- **One sync per book at a time** (`syncNow`): a request while one runs becomes
+  a single follow-up. A sync sends `pending` + `since: version` and gets back
+  every entity changed after `since`; `ackPending` then removes only the
+  registers that were sent, so an edit made during the request stays pending.
+- **First contact with a v1 space** (`firstContact`: book has a `shareCode` but
+  no doc): the server returns `legacy`; `legacyToDoc` converts it
+  deterministically at clock `ZERO`, sent once as `base` with `baseOf` = the
+  server's `legacyHash` of the payload it was converted from. If an old client
+  wrote in between, the server refuses (409 `base_required` + the current
+  payload); `rebaseOnLegacy` reconverts and re-applies the pending writes (real
+  clocks, so they still win) and retries. Only what the device still owed is staged — unsynced
+  records, v1 tombstones, a pending book edit — and the local copy is replaced
+  by the doc immediately; re-staging the stale local copy is exactly how v1
+  reverted others' edits.
 
-Pulls fire on `currentBookId` change (watcher, `immediate`), on `selectBook`,
+Endpoints: `POST /shared/v2` (create from `docFromLocal`), `GET
+/shared/v2/:code?since=`, `POST /shared/v2/:code/sync`. An upgraded space
+answers v1 `PUT` with 409, so old app versions can read but not overwrite; their
+unsent edits stay local until the app updates. Wire format and flatten
+conventions (`$` groups, `deleted`, `f.created`) are shared with the backend —
+see its `CLAUDE.md` before changing either side. `tests/helpers/fakeSharedServer.ts`
+implements the server's rules for two-device tests (`tests/shared-sync.test.ts`).
+
+Syncs fire on `currentBookId` change (watcher, `immediate`), on `selectBook`,
 when `BookDetail` mounts, and when the add-record or settlement sheet opens.
-Pull/push errors are only logged — there is no user-visible sync failure state.
+Errors are only logged — there is no user-visible sync failure state.
 
 Joining is two steps and **never adds a member**. `previewSharedBook(code)`
-fetches the book; `JoinBookModal` then asks "which one are you?" — the joiner
-picks an existing unlinked member (the one with their name is preselected, not
-auto-claimed) or joins without one. `joinSharedBook(code, data, memberId|null)`
-links the pick to the public `memberId`, marks the book `isSynced: false` and
-pushes **immediately, awaited**. The `isSynced: false` matters: setting
-`currentBookId` fires the auto-pull watcher, which would otherwise adopt the
-still-unclaimed cloud list during the `save()` await and push that. A joiner
-already linked (by `memberId`, or the legacy backup `id` — `isSelf` in
-`utils/member.ts`) skips the picker. Joining a book id that already exists
-locally asks to overwrite it.
+fetches the doc (converting a v1 space); `JoinBookModal` asks "which one are
+you?" — the joiner picks an existing unlinked member (the one with their name
+is preselected, not auto-claimed) or joins without one.
+`joinSharedBook(code, preview, memberId|null)` adopts the doc, links the pick to
+the public `memberId` as a staged register (newer than the server's, so a
+concurrent pull can't undo it) and syncs immediately. A joiner already linked
+(by `memberId`, or the legacy backup `id` — `isSelf` in `utils/member.ts`)
+skips the picker. Joining a book id that already exists locally asks to
+overwrite it.
 
 `ImportFromBookSheet` temporarily switches `currentBookId` to read
 `memberStats` for another book, then restores it. `importMyShareFromBook`
@@ -349,9 +378,9 @@ and `pullSharedBook` adopts it.
 `isSynced: false` marks locally-modified records; `pendingDelete*Ids[]` arrays
 (one per entity, persisted in IndexedDB) are tombstones added on every
 `delete*()` — including `pendingDeleteMemberIds`, added by `updateBook` for any
-member id missing from the submitted drafts. All are cleared by a successful
-`backupByUUID`; record and member tombstones for a shared book also clear after
-that book's successful shared push, which is what propagates the deletion.
+member removed from an unshared book. All are cleared by a successful
+`backupByUUID`. They only matter for the UUID backup; shared books carry their
+own tombstones in the doc (a v1 book's are folded in on first contact).
 
 `deletedCategoryIds` is unrelated to tombstones — it hides *default* categories
 locally.

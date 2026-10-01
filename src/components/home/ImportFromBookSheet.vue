@@ -25,7 +25,7 @@
         </p>
         <div class="flex flex-wrap gap-2">
           <button
-            v-for="member in book.members"
+            v-for="member in activeMembers(book.members)"
             :key="member.id"
             @click="handleImport(book.id, member.id, member.name, book.name)"
             class="flex items-center gap-1.5 rounded-xl border border-violet-200 bg-white px-4 py-2 text-sm font-semibold text-violet-700 shadow-sm transition-all hover:bg-violet-50 active:scale-95 dark:border-violet-700 dark:bg-gray-800 dark:text-violet-400"
@@ -45,6 +45,7 @@ import { useI18n } from "vue-i18n";
 import { useToast } from "../../composables/useToast";
 import BaseBottomSheet from "../BaseBottomSheet.vue";
 import { formatMoney } from "../../utils/currency";
+import { activeMembers } from "../../utils/member";
 
 defineProps<{ modelValue: boolean }>();
 const emit = defineEmits<{

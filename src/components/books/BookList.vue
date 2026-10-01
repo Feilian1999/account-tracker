@@ -46,7 +46,7 @@
               <div class="mt-1.5 flex items-center gap-2">
                 <div class="flex -space-x-2" aria-hidden="true">
                   <MemberAvatar
-                    v-for="member in book.members.slice(0, MAX_AVATARS)"
+                    v-for="member in activeMembers(book.members).slice(0, MAX_AVATARS)"
                     :key="member.id"
                     :name="member.name"
                     :seed="member.id"
@@ -54,15 +54,15 @@
                     class="ring-2 ring-white dark:ring-gray-800"
                   />
                   <span
-                    v-if="book.members.length > MAX_AVATARS"
+                    v-if="activeMembers(book.members).length > MAX_AVATARS"
                     class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-[10px] font-bold text-gray-500 ring-2 ring-white dark:bg-gray-700 dark:text-gray-300 dark:ring-gray-800"
                   >
-                    +{{ book.members.length - MAX_AVATARS }}
+                    +{{ activeMembers(book.members).length - MAX_AVATARS }}
                   </span>
                 </div>
                 <span class="hint-text truncate">
-                  {{ $t("members.count", { count: book.members.length }) }}
-                  <span class="sr-only">: {{ book.members.map((m) => m.name).join(", ") }}</span>
+                  {{ $t("members.count", { count: activeMembers(book.members).length }) }}
+                  <span class="sr-only">: {{ activeMembers(book.members).map((m) => m.name).join(", ") }}</span>
                 </span>
               </div>
             </div>
@@ -87,6 +87,7 @@
 <script setup lang="ts">
 import DraggableFab from "../DraggableFab.vue";
 import MemberAvatar from "../MemberAvatar.vue";
+import { activeMembers } from "../../utils/member";
 
 const MAX_AVATARS = 4;
 import { useTrackerStore } from "../../stores/tracker";

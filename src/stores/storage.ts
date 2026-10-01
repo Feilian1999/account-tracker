@@ -92,4 +92,7 @@ export const STORAGE_KEYS = {
   PENDING_DELETE_MEMBERS: "tracker_pending_delete_members",
   // Exchange-rate cache (utils/fxRates.ts), not domain state: never synced
   FX_RATES: "tracker_fx_rates",
+  // Shared-book CRDT replicas (utils/crdt.ts) and this device's clock (utils/hlc.ts)
+  SHARED_DOCS: "tracker_shared_docs",
+  CRDT_CLOCK: "tracker_crdt_clock",
 } as const;

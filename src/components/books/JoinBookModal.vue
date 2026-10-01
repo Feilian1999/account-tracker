@@ -66,7 +66,7 @@
               :aria-label="$t('members.whoAreYou')"
             >
               <button
-                v-for="member in preview.book.members"
+                v-for="member in activeMembers(preview.book.members)"
                 :key="member.id"
                 type="button"
                 role="radio"
@@ -128,7 +128,8 @@
 import { computed, ref, useId, watch, toRef } from "vue";
 import { useI18n } from "vue-i18n";
 import { useTrackerStore } from "../../stores/tracker";
-import type { SharedBookPayload } from "../../stores/types";
+import type { SharedBookPreview } from "../../stores/books";
+import { activeMembers } from "../../utils/member";
 import { useEscapeKey } from "../../composables/useEscapeKey";
 import MemberAvatar from "../MemberAvatar.vue";
 
@@ -150,7 +151,7 @@ const codeInputId = `${baseId}-code`;
 const code = ref("");
 const loading = ref(false);
 const errorMsg = ref("");
-const preview = ref<SharedBookPayload | null>(null);
+const preview = ref<SharedBookPreview | null>(null);
 const selectedId = ref<string | null>(null);
 
 const isValid = computed(() => {
@@ -221,7 +222,9 @@ const submitCode = async () => {
     // Suggest (never auto-claim) the unlinked member with the user's name.
     const myName = store.userProfile.name.trim().toLowerCase();
     selectedId.value =
-      data.book.members.find((m) => !m.userId && m.name.trim().toLowerCase() === myName)?.id ??
+      activeMembers(data.book.members).find(
+        (m) => !m.userId && m.name.trim().toLowerCase() === myName,
+      )?.id ??
       null;
   } catch (err: any) {
     errorMsg.value =

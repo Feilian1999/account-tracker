@@ -18,7 +18,7 @@
         </h3>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div
-            v-for="stat in memberStats"
+            v-for="stat in visibleStats"
             :key="stat.member.id"
             class="flex flex-col rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all cursor-pointer hover:shadow-md active:scale-[0.98] dark:border-gray-800 dark:bg-gray-800"
             @click="openMemberCategory(stat.member)"
@@ -185,6 +185,11 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{ "update:modelValue": [value: boolean] }>();
+
+// An archived member only shows while something still involves them.
+const visibleStats = computed(() =>
+  props.memberStats.filter((s) => !s.member.archived || s.paid !== 0 || s.owed !== 0),
+);
 const store = useTrackerStore();
 const { te, t, locale } = useI18n();
 const fmt = (amount: number) => formatMoney(amount, props.currency, locale.value);

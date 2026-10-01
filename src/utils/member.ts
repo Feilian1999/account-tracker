@@ -77,6 +77,10 @@ export function memberRecordCount(
   ).length;
 }
 
+/** Members that are still in the book (archived ones only remain for settlement). */
+export const activeMembers = <T extends Pick<Member, "archived">>(members: T[]): T[] =>
+  members.filter((m) => !m.archived);
+
 const normalize = (name: string) => name.trim().toLowerCase();
 
 export interface MemberIssues {

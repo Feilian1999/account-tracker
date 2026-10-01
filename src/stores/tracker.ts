@@ -9,6 +9,8 @@ import { setupPersonalActions } from "./personal";
 import { setupTemplateActions } from "./templates";
 import { setupCloudSyncActions } from "./cloud-sync";
 import { setupBaseCurrencyActions } from "./base-currency";
+import type { SharedDocState } from "../utils/crdt";
+import { clockState, initClock, type ClockState } from "../utils/hlc";
 
 // Re-export types & constants for backward compatibility
 export type { Member, Book, RecordItem, PersonalRecord, RecordTemplate, UserProfile, Category, Settlement, CurrencyCode } from "./types";
@@ -32,6 +34,8 @@ export const useTrackerStore = defineStore("tracker", () => {
   const customCategories = ref<Category[]>([]);
   const deletedCategoryIds = ref<string[]>([]);
   const recordTemplates = ref<RecordTemplate[]>([]);
+  /** Shared-book CRDT replicas by bookId (see books.ts). */
+  const sharedDocs = ref<Record<string, SharedDocState>>({});
 
   // =====================
   //  Tombstone State (pending deletes not yet pushed to cloud)
@@ -76,6 +80,8 @@ export const useTrackerStore = defineStore("tracker", () => {
         loadedPendingDeleteCustomCategories,
         loadedPendingDeleteTemplates,
         loadedPendingDeleteMembers,
+        loadedSharedDocs,
+        loadedClock,
       ] = await Promise.all([
         loadFromStorage(STORAGE_KEYS.BOOKS, []),
         loadFromStorage(STORAGE_KEYS.RECORDS, []),
@@ -91,6 +97,8 @@ export const useTrackerStore = defineStore("tracker", () => {
         loadFromStorage(STORAGE_KEYS.PENDING_DELETE_CUSTOM_CATEGORIES, []),
         loadFromStorage(STORAGE_KEYS.PENDING_DELETE_TEMPLATES, []),
         loadFromStorage(STORAGE_KEYS.PENDING_DELETE_MEMBERS, []),
+        loadFromStorage<Record<string, SharedDocState>>(STORAGE_KEYS.SHARED_DOCS, {}),
+        loadFromStorage<ClockState | null>(STORAGE_KEYS.CRDT_CLOCK, null),
       ]);
 
       books.value = loadedBooks;
@@ -130,6 +138,10 @@ export const useTrackerStore = defineStore("tracker", () => {
       pendingDeleteCustomCategoryIds.value = loadedPendingDeleteCustomCategories || [];
       pendingDeleteTemplateIds.value = loadedPendingDeleteTemplates || [];
       pendingDeleteMemberIds.value = loadedPendingDeleteMembers || [];
+      sharedDocs.value = loadedSharedDocs || {};
+      // Before anything can stamp a write: restores this device's node id and
+      // keeps new stamps above its earlier ones.
+      initClock(loadedClock);
 
       isInitialized.value = true;
 
@@ -159,6 +171,8 @@ export const useTrackerStore = defineStore("tracker", () => {
       saveToStorage(STORAGE_KEYS.PENDING_DELETE_CUSTOM_CATEGORIES, pendingDeleteCustomCategoryIds.value),
       saveToStorage(STORAGE_KEYS.PENDING_DELETE_TEMPLATES, pendingDeleteTemplateIds.value),
       saveToStorage(STORAGE_KEYS.PENDING_DELETE_MEMBERS, pendingDeleteMemberIds.value),
+      saveToStorage(STORAGE_KEYS.SHARED_DOCS, sharedDocs.value),
+      saveToStorage(STORAGE_KEYS.CRDT_CLOCK, clockState()),
     ]);
   };
 
@@ -167,7 +181,17 @@ export const useTrackerStore = defineStore("tracker", () => {
   // =====================
   const userActions = setupUserActions(userProfile, save);
   const categoryActions = setupCategoryActions(customCategories, deletedCategoryIds, pendingDeleteCustomCategoryIds);
-  const bookActions = setupBookActions(books, records, currentBookId, userProfile, pendingDeleteBookIds, pendingDeleteRecordIds, pendingDeleteMemberIds, save);
+  const bookActions = setupBookActions(
+    books,
+    records,
+    currentBookId,
+    userProfile,
+    sharedDocs,
+    pendingDeleteBookIds,
+    pendingDeleteRecordIds,
+    pendingDeleteMemberIds,
+    save,
+  );
   const baseCurrencyActions = setupBaseCurrencyActions(userProfile, personalRecords, save);
   const personalActions = setupPersonalActions(
     personalRecords,

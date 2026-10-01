@@ -27,7 +27,7 @@
       v-if="currentBook"
       v-model="showAddRecordSheet"
       :bookName="currentBook.name"
-      :members="currentBook.members"
+      :members="sheetMembers"
       :currency="currencyOf(currentBook.currency)"
       :editRecordId="editRecordId"
     />
@@ -83,6 +83,22 @@ const pageActive = ref(true);
 const currentBook = computed(
   () => store.books.find((book) => book.id === selectedBookId.value) ?? null,
 );
+
+// Archived members aren't offered for new records — but a record being edited
+// keeps its own (possibly archived) payer and split members, or saving it
+// would silently move them onto someone else.
+const sheetMembers = computed(() => {
+  const members = currentBook.value?.members ?? [];
+  const record = editRecordId.value
+    ? store.records.find((r) => r.id === editRecordId.value)
+    : undefined;
+  const involved = new Set([
+    record?.paidById,
+    ...(record?.splitAmongIds ?? []),
+    ...Object.keys(record?.splitCustomAmounts ?? {}),
+  ]);
+  return members.filter((m) => !m.archived || involved.has(m.id));
+});
 
 usePrimaryAction(pageActive, () => {
   if (selectedBookId.value) openNewRecord();

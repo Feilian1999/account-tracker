@@ -1,5 +1,6 @@
 import axios from "axios";
 import type { SharedBookPayload, ShareResponse } from "../stores/types";
+import type { Doc } from "./crdt";
 
 // 建立 Axios 實例
 const api = axios.create({
@@ -32,17 +33,29 @@ export const pullSyncByUUID = async (uuid: string) => {
   return api.get(`/sync/pull-uuid/${uuid}`, { timeout: SYNC_TIMEOUT });
 };
 
-// Shared Books
-export const shareBookToCloud = async (payload: SharedBookPayload) => {
-  return api.post<ShareResponse>("/shared/share", payload);
+// Shared Books — CRDT sync (see utils/crdt.ts and the backend's CLAUDE.md)
+export interface SharedDocResponse {
+  version: number;
+  doc?: Doc;
+  /** Only for a space still in the v1 format (never synced by a v2 client). */
+  legacy?: SharedBookPayload & { deletedIds?: string[] };
+  /** Fingerprint of `legacy`; sent back as `baseOf` when upgrading. */
+  legacyHash?: string;
+}
+
+export const createSharedDoc = async (doc: Doc) => {
+  return api.post<ShareResponse & { version: number }>("/shared/v2", { doc });
 };
 
-export const fetchSharedBook = async (code: string) => {
-  return api.get<SharedBookPayload>(`/shared/${code}`);
+export const getSharedDoc = async (code: string, since = 0) => {
+  return api.get<SharedDocResponse>(`/shared/v2/${code}`, { params: { since } });
 };
 
-export const updateSharedBook = async (code: string, payload: SharedBookPayload) => {
-  return api.put(`/shared/${code}`, payload);
+export const syncSharedDoc = async (
+  code: string,
+  body: { since: number; changes: Doc; base?: Doc; baseOf?: string },
+) => {
+  return api.post<SharedDocResponse>(`/shared/v2/${code}/sync`, body);
 };
 
 export default api;
