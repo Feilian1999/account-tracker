@@ -188,7 +188,7 @@ import {
   originalOf,
   roundTo,
 } from "../utils/currency";
-import type { CurrencyCode } from "../stores/types";
+import type { Category, CurrencyCode } from "../stores/types";
 
 const store = useTrackerStore();
 const { te, t, locale } = useI18n();
@@ -255,18 +255,12 @@ const selectCategoryTab = (tab: "expense" | "income", event: KeyboardEvent) => {
   tabs?.[tab === "expense" ? 0 : 1].focus();
 };
 
-const getCategoryStyle = (categoryName: string) => {
-  const category = findCategoryByName(store.allCategories, categoryName);
+const getCategoryStyle = (category: Category | undefined) => {
   const color = category?.color ?? "gray";
   return {
     icon: category?.icon ?? "more_horiz",
     ...(colorMap[color] ?? colorMap.gray),
   };
-};
-
-const getLocalizedCategoryName = (categoryName: string) => {
-  const category = findCategoryByName(store.allCategories, categoryName);
-  return category ? categoryLabel(category, t, te) : categoryName;
 };
 
 const categoryTotal = computed(() =>
@@ -282,22 +276,43 @@ const categoryBreakdown = computed(() => {
   const total = typeRecords.reduce((sum, record) => sum + record.amount, 0);
   if (total === 0) return [];
 
-  const map = new Map<string, { total: number; count: number }>();
+  // One row per category, not per stored name: a default's records may carry
+  // its original name or (from an earlier release) its renamed one.
+  const map = new Map<
+    string,
+    {
+      categoryName: string;
+      category?: Category;
+      total: number;
+      count: number;
+    }
+  >();
   for (const record of typeRecords) {
-    const entry = map.get(record.category) ?? { total: 0, count: 0 };
+    const category = findCategoryByName(
+      store.allCategories,
+      record.category,
+      categoryTab.value,
+    );
+    const key = category ? `id:${category.id}` : `name:${record.category}`;
+    const entry = map.get(key) ?? {
+      categoryName: record.category,
+      category,
+      total: 0,
+      count: 0,
+    };
     entry.total += record.amount;
     entry.count += 1;
-    map.set(record.category, entry);
+    map.set(key, entry);
   }
 
-  return [...map.entries()]
-    .map(([categoryName, data]) => ({
+  return [...map.values()]
+    .map(({ categoryName, category, ...data }) => ({
       categoryName,
-      localizedName: getLocalizedCategoryName(categoryName),
+      localizedName: category ? categoryLabel(category, t, te) : categoryName,
       total: roundTo(data.total, base.value),
       count: data.count,
       percentage: Math.round((data.total / total) * 100),
-      style: getCategoryStyle(categoryName),
+      style: getCategoryStyle(category),
     }))
     .sort((a, b) => b.total - a.total);
 });

@@ -157,17 +157,17 @@
                     <div
                       :class="[
                         'record-icon',
-                        getCategoryBg(record.category).bg,
-                        getCategoryBg(record.category).text,
+                        getCategoryBg(record.category, record.type).bg,
+                        getCategoryBg(record.category, record.type).text,
                       ]"
                       aria-hidden="true"
                     >
-                      <CategoryIcon :name="getCategoryIcon(record.category)" />
+                      <CategoryIcon :name="getCategoryIcon(record.category, record.type)" />
                     </div>
                     <div class="min-w-0 flex-1">
                       <div class="flex min-w-0 items-center gap-2">
                         <p class="section-title shrink-0 whitespace-nowrap text-sm">
-                          {{ getLocalizedCategoryName(record.category) }}
+                          {{ getLocalizedCategoryName(record.category, record.type) }}
                         </p>
                         <span v-if="record.note" class="hint-text min-w-0 truncate text-xs before:mr-0.5 before:content-['•']">
                           {{ record.note }}
@@ -253,6 +253,7 @@ import MemberAvatar from "../MemberAvatar.vue";
 import { activeMembers, isSelf } from "../../utils/member";
 import { currencyOf, formatMoney } from "../../utils/currency";
 import { useTrackerStore } from "../../stores/tracker";
+import type { Category } from "../../stores/types";
 import { formatDate, getCategoryBg, getCategoryIcon } from "../../utils/category";
 import { categoryLabel, findCategoryByName } from "../../utils/categoryLookup";
 
@@ -287,8 +288,11 @@ const initPull = async () => {
 };
 initPull();
 
-const getLocalizedCategoryName = (categoryName: string) => {
-  const category = findCategoryByName(store.allCategories, categoryName);
+const getLocalizedCategoryName = (
+  categoryName: string,
+  type: Category["type"],
+) => {
+  const category = findCategoryByName(store.allCategories, categoryName, type);
   return category ? categoryLabel(category, t, te) : categoryName;
 };
 

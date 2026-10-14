@@ -128,7 +128,7 @@
         <p v-if="nameTaken" class="mt-2 text-xs font-semibold text-red-500 dark:text-red-400">
           {{ $t("categories.nameTaken") }}
         </p>
-        <p v-else-if="mode === 'edit'" class="hint-text mt-2">
+        <p v-else-if="mode === 'edit' && !editing?.isDefault" class="hint-text mt-2">
           {{ $t("categories.renameNote") }}
         </p>
       </div>

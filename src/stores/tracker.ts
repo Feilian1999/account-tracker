@@ -195,6 +195,8 @@ export const useTrackerStore = defineStore("tracker", () => {
         await saveToStorage(STORAGE_KEYS.USER_PROFILE, userProfile.value);
       }
 
+      await categoryActions.restoreDefaultCategoryNames();
+
       console.log("[tracker] Store initialized from IndexedDB.");
     })();
 
@@ -251,7 +253,6 @@ export const useTrackerStore = defineStore("tracker", () => {
     books,
     records,
     personalRecords,
-    sharedDocs,
     save,
   );
   const bookActions = setupBookActions(

@@ -1,18 +1,29 @@
 import { defaultCategories } from "../stores/constants";
 import type { Category } from "../stores/types";
 
+const DEFAULT_NAMES = new Map(defaultCategories.map((c) => [c.id, c.name]));
+
 /**
  * The name a default category is stored under in records (the zh-TW name in
  * constants.ts), whatever the user has renamed it to; undefined for custom ones.
  */
 export function defaultCategoryName(id: string): string | undefined {
-  return defaultCategories.find((c) => c.id === id)?.name;
+  return DEFAULT_NAMES.get(id);
 }
 
 /**
- * Finds the category a record's `category` name refers to. A renamed default
- * category still claims records stored under its original name — shared books
- * keep those, since a rename only rewrites personal and unshared book records.
+ * The name to store in a record's `category` for this category. A default is
+ * always stored under its original name: renaming one is a local display
+ * override, so it never reaches a shared book, a backup or another device.
+ */
+export function storedCategoryName(cat: Category): string {
+  return defaultCategoryName(cat.id) ?? cat.name;
+}
+
+/**
+ * Finds the category a record's `category` name refers to — by its current
+ * name, or a default by the original name its records are stored under. Pass
+ * the record's type: an expense and an income category may share a name.
  */
 export function findCategoryByName(
   categories: Category[],

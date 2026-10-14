@@ -4,6 +4,7 @@ import type {
   PersonalRecord,
   RecordItem,
 } from "../stores/types";
+import { isSharedBook } from "./book";
 import { defaultCategoryName } from "./categoryLookup";
 
 export interface NoteSource {
@@ -48,11 +49,11 @@ export function noteSourcesFor(
   },
 ): NoteSource[] {
   const book = data.books.find((b) => b.id === bookId);
-  if (book?.shareCode) {
+  if (book && isSharedBook(book)) {
     return data.records.filter((r) => r.bookId === book.id);
   }
   const unshared = new Set(
-    data.books.filter((b) => !b.shareCode).map((b) => b.id),
+    data.books.filter((b) => !isSharedBook(b)).map((b) => b.id),
   );
   return [
     ...data.personalRecords,

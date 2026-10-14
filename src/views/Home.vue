@@ -300,6 +300,7 @@ import DailyRecordGroup from "../components/home/DailyRecordGroup.vue";
 import ImportFromBookSheet from "../components/home/ImportFromBookSheet.vue";
 import { useTrackerStore } from "../stores/tracker";
 import { colorMap } from "../utils/category";
+import { storedCategoryName } from "../utils/categoryLookup";
 import { getLocalDateString, getLocalYearMonthString } from "../utils/date";
 import { useEscapeKey } from "../composables/useEscapeKey";
 import { usePrimaryAction } from "../composables/usePrimaryAction";
@@ -402,9 +403,8 @@ const openNewRecordFromTemplate = async (templateId: string) => {
     tpl.amount !== null &&
     currencyOf(tpl.currency) === store.baseCurrency
   ) {
-    const catName =
-      store.allCategories.find((c) => c.id === tpl.category)?.name ??
-      tpl.category;
+    const cat = store.allCategories.find((c) => c.id === tpl.category);
+    const catName = cat ? storedCategoryName(cat) : tpl.category;
     await store.addPersonalRecord({
       type: tpl.type,
       amount: tpl.amount,

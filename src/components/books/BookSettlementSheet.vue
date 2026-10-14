@@ -214,13 +214,13 @@ function openMemberCategory(member: Member) {
 }
 
 function getCategoryStyle(categoryName: string) {
-  const cat = findCategoryByName(store.allCategories, categoryName);
+  const cat = findCategoryByName(store.allCategories, categoryName, "expense");
   const color = cat?.color ?? "gray";
   return { icon: cat?.icon ?? "more_horiz", ...(colorMap[color] ?? colorMap.gray) };
 }
 
 function getLocalizedName(categoryName: string) {
-  const cat = findCategoryByName(store.allCategories, categoryName);
+  const cat = findCategoryByName(store.allCategories, categoryName, "expense");
   return cat ? categoryLabel(cat, t, te) : categoryName;
 }
 

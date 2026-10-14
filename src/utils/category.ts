@@ -1,4 +1,5 @@
 import { useTrackerStore } from "../stores/tracker";
+import type { Category } from "../stores/types";
 import { formatLocalDate, formatLocalDateWithWeekday } from "./date";
 import { findCategoryByName } from "./categoryLookup";
 
@@ -43,23 +44,31 @@ export const colorMapFull = colorMap;
  * Returns the icon name for a category by its name.
  * Falls back to "more_horiz" if not found.
  */
-export function getCategoryIcon(categoryName: string): string {
+export function getCategoryIcon(
+  categoryName: string,
+  type?: Category["type"],
+): string {
   const store = useTrackerStore();
   return (
-    findCategoryByName(store.allCategories, categoryName)?.icon ?? "more_horiz"
+    findCategoryByName(store.allCategories, categoryName, type)?.icon ??
+    "more_horiz"
   );
 }
 
 /**
  * Returns the Tailwind bg + text color classes for a category by its name.
  */
-export function getCategoryBg(categoryName: string): {
+export function getCategoryBg(
+  categoryName: string,
+  type?: Category["type"],
+): {
   bg: string;
   text: string;
 } {
   const store = useTrackerStore();
   const color =
-    findCategoryByName(store.allCategories, categoryName)?.color ?? "gray";
+    findCategoryByName(store.allCategories, categoryName, type)?.color ??
+    "gray";
   return colorMap[color] ?? colorMap.gray;
 }
 

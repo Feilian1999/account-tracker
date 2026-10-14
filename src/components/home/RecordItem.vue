@@ -14,16 +14,16 @@
         <div
           :class="[
             'record-icon !h-8 !w-8 !rounded-full',
-            getCategoryStyle(record.category).bg,
-            getCategoryStyle(record.category).text,
+            getCategoryStyle(record.category, record.type).bg,
+            getCategoryStyle(record.category, record.type).text,
           ]"
         >
-          <CategoryIcon :name="getCategoryStyle(record.category).icon" style="transform: scale(0.85);" />
+          <CategoryIcon :name="getCategoryStyle(record.category, record.type).icon" style="transform: scale(0.85);" />
         </div>
         <div class="min-w-0 flex-1">
           <div class="flex min-w-0 items-center gap-2">
             <p class="section-title shrink-0 whitespace-nowrap text-sm">
-              {{ getLocalizedCategoryName(record.category) }}
+              {{ getLocalizedCategoryName(record.category, record.type) }}
             </p>
             <span v-if="record.note" class="hint-text min-w-0 truncate text-xs">
               {{ record.note }}
@@ -61,6 +61,7 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
 import { useTrackerStore, type PersonalRecord } from "../../stores/tracker";
+import type { Category } from "../../stores/types";
 import { colorMap } from "../../utils/category";
 import { categoryLabel, findCategoryByName } from "../../utils/categoryLookup";
 import CategoryIcon from "../CategoryIcon.vue";
@@ -79,12 +80,12 @@ defineEmits<{
 const store = useTrackerStore();
 const { t, te } = useI18n();
 
-const findCategory = (categoryName: string) =>
-  findCategoryByName(store.allCategories, categoryName) ??
+const findCategory = (categoryName: string, type: Category["type"]) =>
+  findCategoryByName(store.allCategories, categoryName, type) ??
   store.allCategories.find((c) => c.id === categoryName);
 
-const getCategoryStyle = (categoryName: string) => {
-  const cat = findCategory(categoryName);
+const getCategoryStyle = (categoryName: string, type: Category["type"]) => {
+  const cat = findCategory(categoryName, type);
   const color = cat?.color ?? "gray";
   return {
     icon: cat?.icon ?? "more_horiz",
@@ -92,8 +93,11 @@ const getCategoryStyle = (categoryName: string) => {
   };
 };
 
-const getLocalizedCategoryName = (categoryName: string) => {
-  const cat = findCategory(categoryName);
+const getLocalizedCategoryName = (
+  categoryName: string,
+  type: Category["type"],
+) => {
+  const cat = findCategory(categoryName, type);
   return cat ? categoryLabel(cat, t, te) : categoryName;
 };
 </script>

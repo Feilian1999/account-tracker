@@ -255,7 +255,11 @@ import { computed, nextTick, ref, toRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useTrackerStore } from "../../stores/tracker";
 import { colorMap } from "../../utils/category";
-import { categoryLabel, findCategoryByName } from "../../utils/categoryLookup";
+import {
+  categoryLabel,
+  findCategoryByName,
+  storedCategoryName,
+} from "../../utils/categoryLookup";
 import CloseButton from "../CloseButton.vue";
 import CategoryIcon from "../CategoryIcon.vue";
 import CalculatorKeyboard from "../CalculatorKeyboard.vue";
@@ -516,7 +520,9 @@ const submit = async () => {
     const data = {
       type: form.value.type,
       ...buildMoney(amt),
-      category: currentCategoryObj.value?.name || form.value.categoryId,
+      category: currentCategoryObj.value
+        ? storedCategoryName(currentCategoryObj.value)
+        : form.value.categoryId,
       date: form.value.date,
       note: form.value.note,
     };

@@ -19,7 +19,11 @@ vi.mock("../src/stores/storage", async (importOriginal) => ({
 
 import { setupCategoryActions } from "../src/stores/categories";
 import { STORAGE_KEYS } from "../src/stores/storage";
-import { categoryLabel, findCategoryByName } from "../src/utils/categoryLookup";
+import {
+  categoryLabel,
+  findCategoryByName,
+  storedCategoryName,
+} from "../src/utils/categoryLookup";
 
 const personal = (category: string, type = "expense"): PersonalRecord =>
   ({
@@ -46,7 +50,7 @@ const bookRecord = (bookId: string, category: string): RecordItem =>
     isSynced: true,
   }) as RecordItem;
 
-function setup() {
+function setup(extraCategories: Category[] = []) {
   const custom: Category = {
     id: crypto.randomUUID(),
     name: "Coffee",
@@ -67,7 +71,7 @@ function setup() {
     } as Book,
   ]);
   const state = {
-    customCategories: ref<Category[]>([custom]),
+    customCategories: ref<Category[]>([custom, ...extraCategories]),
     deletedCategoryIds: ref<string[]>([]),
     overrides: ref<Record<string, CategoryOverride>>({}),
     books,
@@ -82,6 +86,7 @@ function setup() {
       personal("飲食"),
       personal("其他", "expense"),
       personal("其他", "income"),
+      personal("Coffee", "income"),
     ]),
     save: vi.fn(async () => {}),
   };
@@ -93,7 +98,6 @@ function setup() {
     state.books,
     state.records,
     state.personalRecords,
-    ref({}),
     state.save,
   );
   return { ...state, actions, custom };
@@ -117,11 +121,13 @@ describe("updateCategory", () => {
       color: "red",
       isSynced: false,
     });
+    // Only expense records: an income "Coffee" is not this category's.
     expect(categoriesOf(s.personalRecords.value)).toEqual([
       "Café",
       "飲食",
       "其他",
       "其他",
+      "Coffee",
     ]);
     // The shared book keeps the old name: a rename is not pushed to members.
     expect(categoriesOf(s.records.value)).toEqual([
@@ -135,20 +141,28 @@ describe("updateCategory", () => {
     expect(s.save).toHaveBeenCalledOnce();
   });
 
-  it("only touches records of the category's own type", async () => {
-    const s = setup();
-    await s.actions.updateCategory("i4", {
-      name: "Misc income",
-      icon: "more_horiz",
-      color: "gray",
-    });
-    expect(categoriesOf(s.personalRecords.value).slice(2)).toEqual([
-      "其他",
-      "Misc income",
+  it("leaves records alone when another category still has the old name", async () => {
+    // Duplicate names from before uniqueness was enforced.
+    const s = setup([
+      {
+        id: crypto.randomUUID(),
+        name: "Coffee",
+        type: "expense",
+        icon: "local_bar",
+        color: "red",
+        isDefault: false,
+      },
     ]);
+    await s.actions.updateCategory(s.custom.id, {
+      name: "Café",
+      icon: "local_cafe",
+      color: "blue",
+    });
+    expect(categoriesOf(s.personalRecords.value)[0]).toBe("Coffee");
+    expect(s.save).not.toHaveBeenCalled();
   });
 
-  it("keeps a default category's edits as a local override", async () => {
+  it("keeps a default category's edits as a display override only", async () => {
     const s = setup();
     await s.actions.updateCategory("e1", {
       name: "Meals",
@@ -163,11 +177,14 @@ describe("updateCategory", () => {
     expect(
       s.actions.allCategories.value.find((c) => c.id === "e1"),
     ).toMatchObject({ name: "Meals", color: "red", isDefault: true });
-    expect(categoriesOf(s.personalRecords.value)[1]).toBe("Meals");
-    expect(categoriesOf(s.records.value).slice(2)).toEqual(["Meals", "飲食"]);
+    // Records keep the original name, so it never reaches a shared book, a
+    // backup or another device.
+    expect(categoriesOf(s.personalRecords.value)[1]).toBe("飲食");
+    expect(categoriesOf(s.records.value).slice(2)).toEqual(["飲食", "飲食"]);
+    expect(s.save).not.toHaveBeenCalled();
   });
 
-  it("changing only the look of a category leaves records alone", async () => {
+  it("drops an override matching the default, and resets one", async () => {
     const s = setup();
     await s.actions.updateCategory("e1", {
       name: "飲食",
@@ -175,21 +192,29 @@ describe("updateCategory", () => {
       color: "blue",
     });
     expect(s.overrides.value).toEqual({ e1: { icon: "fastfood" } });
-    expect(s.save).not.toHaveBeenCalled();
-  });
 
-  it("restoring a default drops the override and renames records back", async () => {
-    const s = setup();
-    await s.actions.updateCategory("e1", {
-      name: "Meals",
-      icon: "fastfood",
-      color: "red",
-    });
     await s.actions.resetDefaultCategory("e1");
-
     expect(s.overrides.value).toEqual({});
+  });
+});
+
+describe("restoreDefaultCategoryNames", () => {
+  it("puts records renamed by the first release back under the original name", async () => {
+    const s = setup();
+    s.overrides.value = { e1: { name: "Meals" } };
+    s.personalRecords.value[1].category = "Meals";
+    s.records.value[2].category = "Meals"; // unshared book
+    s.records.value[3].category = "Meals"; // shared: not this device's to fix
+
+    await s.actions.restoreDefaultCategoryNames();
+
     expect(categoriesOf(s.personalRecords.value)[1]).toBe("飲食");
-    expect(categoriesOf(s.records.value)[2]).toBe("飲食");
+    expect(categoriesOf(s.records.value).slice(2)).toEqual(["飲食", "Meals"]);
+    expect(s.personalRecords.value[1].isSynced).toBe(false);
+
+    s.save.mockClear();
+    await s.actions.restoreDefaultCategoryNames();
+    expect(s.save).not.toHaveBeenCalled();
   });
 });
 
@@ -207,6 +232,11 @@ describe("category lookup", () => {
     expect(findCategoryByName(all, "飲食")?.id).toBe("e1");
     expect(findCategoryByName(all, "其他", "income")?.id).toBe("i4");
     expect(findCategoryByName(all, "nope")).toBeUndefined();
+    expect(storedCategoryName(all.find((c) => c.id === "e1")!)).toBe("飲食");
+    expect(storedCategoryName(s.custom)).toBe("Coffee");
+    // An expense and an income category may share a name.
+    expect(findCategoryByName(all, "Coffee", "expense")?.id).toBe(s.custom.id);
+    expect(findCategoryByName(all, "Coffee", "income")).toBeUndefined();
   });
 
   it("translates a default only while it keeps its original name", () => {

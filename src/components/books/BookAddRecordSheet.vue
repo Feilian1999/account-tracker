@@ -462,7 +462,11 @@ import { computed, nextTick, ref, toRef, watch } from "vue";
 import { useTrackerStore } from "../../stores/tracker";
 import type { Member } from "../../stores/tracker";
 import { colorMap } from "../../utils/category";
-import { categoryLabel, findCategoryByName } from "../../utils/categoryLookup";
+import {
+  categoryLabel,
+  findCategoryByName,
+  storedCategoryName,
+} from "../../utils/categoryLookup";
 import RecordSheetLayout from "../RecordSheetLayout.vue";
 import BaseButton from "../BaseButton.vue";
 import CloseButton from "../CloseButton.vue";
@@ -936,7 +940,9 @@ const handleSubmit = async () => {
     const data = {
       type: form.value.type,
       ...money,
-      category: currentCategoryObj.value?.name || form.value.categoryId,
+      category: currentCategoryObj.value
+        ? storedCategoryName(currentCategoryObj.value)
+        : form.value.categoryId,
       date: form.value.date,
       note: form.value.note,
       paidById: isExpense ? form.value.paidById : "",

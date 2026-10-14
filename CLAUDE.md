@@ -184,19 +184,25 @@ current member; every consumer expands it. `paidById` is `""` for income.
 - `RecordTemplate.category` stores the category **id**. `Home.vue`'s one-tap
   template path converts id → name before `addPersonalRecord`.
 - Lookups therefore match by name — always through `findCategoryByName`
-  (`utils/categoryLookup.ts`), which also lets a renamed default claim records
-  under its original name; `RecordItem.vue` also accepts an id. A record whose
-  category was deleted falls back to the `more_horiz` icon and the raw string.
-  Keep new code consistent with the field it touches; don't "fix" one side
-  without migrating stored data.
-- **Editing a category** (`updateCategory`, `CategorySettingsModal`): name,
-  icon and colour; never the type. A rename rewrites the `category` of personal
-  records and unshared-book records of that type (marking them unsynced) —
-  shared books are left alone so one device's naming isn't pushed to every
-  member. Defaults live only in `constants.ts`, so their edits are a local
-  `CATEGORY_OVERRIDES` map (written by `categories.ts`, not in `save()`, not
-  backed up — like `DELETED_CATEGORIES`); `resetDefaultCategory` restores one.
-  Two categories of one type may not share a name (the modal blocks it).
+  (`utils/categoryLookup.ts`), passing the record's type (an expense and an
+  income category may share a name); `RecordItem.vue` also accepts an id. A
+  record whose category was deleted falls back to the `more_horiz` icon and
+  the raw string. Keep new code consistent with the field it touches; don't
+  "fix" one side without migrating stored data.
+- **A default category is always stored under its original name**
+  (`storedCategoryName` — use it wherever a picked category becomes a
+  record's `category`). Editing a default (`updateCategory`) only sets a local
+  display override in `CATEGORY_OVERRIDES` (written by `categories.ts`, not in
+  `save()`, not backed up — like `DELETED_CATEGORIES`); records are never
+  rewritten, so a local rename can't reach a shared book, a backup or another
+  device. `resetDefaultCategory` drops it. (`restoreDefaultCategoryNames`, run
+  on init, undoes a first release that did rewrite records.)
+- **Renaming a custom category** rewrites the `category` of personal records
+  and unshared-book records of its type (marking them unsynced) — shared books
+  (`isSharedBook`) are left alone so one device's naming isn't pushed to every
+  member — unless another category of that type still has the old name. The
+  type of a category never changes; two categories of one type may not share
+  a name (the modal blocks it).
 
 **`UserProfile.id` vs `memberId` — do not conflate them.** `id` is the secret
 cloud-backup key (a capability token; it must never leave the device except to
