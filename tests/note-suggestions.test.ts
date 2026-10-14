@@ -1,0 +1,98 @@
+import { mount } from "@vue/test-utils";
+import { describe, expect, it } from "vitest";
+import NoteSuggestions from "../src/components/NoteSuggestions.vue";
+import type { Category } from "../src/stores/types";
+import { suggestNotes } from "../src/utils/noteSuggestions";
+
+const rec = (
+  note: string,
+  category = "飲食",
+  date = "2026-10-01",
+  type: Category["type"] = "expense",
+) => ({ note, category, date, type });
+
+const cat = (id: string, name: string): Category => ({
+  id,
+  name,
+  type: "expense",
+  icon: "restaurant",
+  color: "blue",
+  isDefault: id.startsWith("e"),
+});
+
+describe("suggestNotes", () => {
+  it("ranks notes of the picked category first, then by use, then recency", () => {
+    const records = [
+      rec("捷運", "交通"),
+      rec("捷運", "交通"),
+      rec("捷運", "交通"),
+      rec("午餐", "飲食", "2026-10-01"),
+      rec("午餐", "飲食", "2026-10-02"),
+      rec("早餐", "飲食", "2026-09-01"),
+      rec("晚餐", "飲食", "2026-10-05"),
+    ];
+    expect(
+      suggestNotes(records, { type: "expense", category: cat("e1", "飲食") }),
+    ).toEqual(["午餐", "晚餐", "早餐", "捷運"]);
+    // Without a category, frequency decides.
+    expect(suggestNotes(records, { type: "expense" })[0]).toBe("捷運");
+  });
+
+  it("filters while typing and drops an exact match", () => {
+    const records = [rec("午餐"), rec("午茶"), rec("晚餐"), rec("Starbucks")];
+    expect(
+      suggestNotes(records, { type: "expense", query: " 午" }).sort(),
+    ).toEqual(["午茶", "午餐"]);
+    expect(suggestNotes(records, { type: "expense", query: "午餐" })).toEqual(
+      [],
+    );
+    expect(suggestNotes(records, { type: "expense", query: "star" })).toEqual([
+      "Starbucks",
+    ]);
+  });
+
+  it("ignores blank notes and notes of the other type, and trims", () => {
+    const records = [
+      rec(""),
+      rec("   "),
+      rec(" 午餐 "),
+      rec("午餐"),
+      rec("薪水", "薪水", "2026-10-01", "income"),
+    ];
+    expect(suggestNotes(records, { type: "expense" })).toEqual(["午餐"]);
+    expect(suggestNotes(records, { type: "income" })).toEqual(["薪水"]);
+  });
+
+  it("a renamed default still matches records under its original name", () => {
+    const records = [rec("捷運", "交通"), rec("捷運", "交通"), rec("午餐")];
+    expect(
+      suggestNotes(records, { type: "expense", category: cat("e1", "Meals") }),
+    ).toEqual(["午餐", "捷運"]);
+  });
+
+  it("caps the list", () => {
+    const records = Array.from({ length: 20 }, (_, i) => rec(`note ${i}`));
+    expect(suggestNotes(records, { type: "expense" })).toHaveLength(8);
+    expect(suggestNotes(records, { type: "expense", limit: 3 })).toHaveLength(
+      3,
+    );
+  });
+});
+
+describe("NoteSuggestions", () => {
+  const mountChips = (notes: string[]) =>
+    mount(NoteSuggestions, {
+      props: { notes },
+      global: { mocks: { $t: (k: string) => k } },
+    });
+
+  it("emits the tapped note", async () => {
+    const wrapper = mountChips(["午餐", "晚餐"]);
+    await wrapper.findAll("button")[1].trigger("click");
+    expect(wrapper.emitted("select")).toEqual([["晚餐"]]);
+  });
+
+  it("renders nothing without suggestions", () => {
+    expect(mountChips([]).find("button").exists()).toBe(false);
+  });
+});

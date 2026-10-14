@@ -18,6 +18,7 @@ const record = {
 vi.mock("../src/stores/tracker", () => ({
   useTrackerStore: () => ({
     records: [record],
+    personalRecords: [],
     recordTemplates: [],
     allCategories: [
       {

@@ -110,6 +110,7 @@ export default {
     },
   },
   recordSheet: {
+    noteSuggestions: "常用備註",
     title: "新增帳本紀錄",
     subtitle: "在「{name}」中記一筆",
     paidBy: "付款人",

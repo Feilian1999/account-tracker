@@ -199,6 +199,10 @@
             class="w-full flex-1 bg-transparent text-right font-medium text-gray-800 outline-none dark:text-gray-200"
           />
         </div>
+        <NoteSuggestions
+          :notes="noteSuggestions"
+          @select="form.note = $event"
+        />
 
         <!-- Save as Template -->
         <div v-if="!editRecordId" class="flex items-center gap-2.5 py-1">
@@ -256,6 +260,8 @@ import CloseButton from "../CloseButton.vue";
 import CategoryIcon from "../CategoryIcon.vue";
 import CalculatorKeyboard from "../CalculatorKeyboard.vue";
 import CategoryPickerSheet from "../CategoryPickerSheet.vue";
+import NoteSuggestions from "../NoteSuggestions.vue";
+import { suggestNotes } from "../../utils/noteSuggestions";
 import RecordSheetLayout from "../RecordSheetLayout.vue";
 import BaseButton from "../BaseButton.vue";
 import { getLocalDateString } from "../../utils/date";
@@ -299,6 +305,14 @@ const activeCats = computed(() =>
 
 const currentCategoryObj = computed(() =>
   activeCats.value.find((c) => c.id === form.value.categoryId),
+);
+// Notes typed before, for one-tap reuse — from every record, personal and book.
+const noteSuggestions = computed(() =>
+  suggestNotes([...store.personalRecords, ...store.records], {
+    type: form.value.type,
+    category: currentCategoryObj.value,
+    query: form.value.note,
+  }),
 );
 const currentCategoryId = computed(() => form.value.categoryId);
 const currentCategoryIcon = computed(

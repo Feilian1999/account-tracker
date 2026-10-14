@@ -110,6 +110,7 @@ export default {
     },
   },
   recordSheet: {
+    noteSuggestions: "よく使うメモ",
     title: "記録を追加",
     subtitle: "「{name}」に記録する",
     paidBy: "支払者",
