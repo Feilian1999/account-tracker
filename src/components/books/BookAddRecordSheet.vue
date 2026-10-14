@@ -470,7 +470,7 @@ import CategoryIcon from "../CategoryIcon.vue";
 import CalculatorKeyboard from "../CalculatorKeyboard.vue";
 import CategoryPickerSheet from "../CategoryPickerSheet.vue";
 import NoteSuggestions from "../NoteSuggestions.vue";
-import { suggestNotes } from "../../utils/noteSuggestions";
+import { useNoteSuggestions } from "../../composables/useNoteSuggestions";
 import MemberAvatar from "../MemberAvatar.vue";
 import { getLocalDateString } from "../../utils/date";
 import { parseAmountExpression } from "../../utils/amountExpression";
@@ -564,14 +564,15 @@ const activeCats = computed(() =>
 const currentCategoryObj = computed(() =>
   activeCats.value.find((c) => c.id === form.value.categoryId),
 );
-// Notes typed before, for one-tap reuse — from every record, personal and book.
-const noteSuggestions = computed(() =>
-  suggestNotes([...store.personalRecords, ...store.records], {
-    type: form.value.type,
-    category: currentCategoryObj.value,
-    query: form.value.note,
-  }),
-);
+// Notes typed before, for one-tap reuse — this book's records only: a tap
+// syncs the note to every member of a shared book, so personal notes and
+// other books' notes must not be offered here.
+const noteSuggestions = useNoteSuggestions({
+  records: () => store.currentBookRecords,
+  type: () => form.value.type,
+  category: () => currentCategoryObj.value,
+  query: () => form.value.note,
+});
 const currentCategoryId = computed(() => form.value.categoryId);
 const currentCategoryIcon = computed(
   () => currentCategoryObj.value?.icon ?? "category",

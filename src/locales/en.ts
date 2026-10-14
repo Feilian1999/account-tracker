@@ -110,7 +110,7 @@ export default {
     },
   },
   recordSheet: {
-    noteSuggestions: "Recent notes",
+    noteSuggestions: "Frequent notes",
     title: "Add Book Record",
     subtitle: "Add to '{name}'",
     paidBy: "Paid By",

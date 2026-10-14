@@ -261,7 +261,7 @@ import CategoryIcon from "../CategoryIcon.vue";
 import CalculatorKeyboard from "../CalculatorKeyboard.vue";
 import CategoryPickerSheet from "../CategoryPickerSheet.vue";
 import NoteSuggestions from "../NoteSuggestions.vue";
-import { suggestNotes } from "../../utils/noteSuggestions";
+import { useNoteSuggestions } from "../../composables/useNoteSuggestions";
 import RecordSheetLayout from "../RecordSheetLayout.vue";
 import BaseButton from "../BaseButton.vue";
 import { getLocalDateString } from "../../utils/date";
@@ -306,14 +306,14 @@ const activeCats = computed(() =>
 const currentCategoryObj = computed(() =>
   activeCats.value.find((c) => c.id === form.value.categoryId),
 );
-// Notes typed before, for one-tap reuse — from every record, personal and book.
-const noteSuggestions = computed(() =>
-  suggestNotes([...store.personalRecords, ...store.records], {
-    type: form.value.type,
-    category: currentCategoryObj.value,
-    query: form.value.note,
-  }),
-);
+// Notes typed before, for one-tap reuse — personal records only, so notes
+// from shared books (others' writing) stay out of the personal sheet.
+const noteSuggestions = useNoteSuggestions({
+  records: () => store.personalRecords,
+  type: () => form.value.type,
+  category: () => currentCategoryObj.value,
+  query: () => form.value.note,
+});
 const currentCategoryId = computed(() => form.value.categoryId);
 const currentCategoryIcon = computed(
   () => currentCategoryObj.value?.icon ?? "category",

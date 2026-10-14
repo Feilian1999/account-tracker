@@ -2,7 +2,26 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 import NoteSuggestions from "../src/components/NoteSuggestions.vue";
 import type { Category } from "../src/stores/types";
-import { suggestNotes } from "../src/utils/noteSuggestions";
+import {
+  filterNotes,
+  rankNotes,
+  type NoteSource,
+} from "../src/utils/noteSuggestions";
+
+const suggestNotes = (
+  records: NoteSource[],
+  opts: {
+    type: Category["type"];
+    category?: Category;
+    query?: string;
+    limit?: number;
+  },
+) =>
+  filterNotes(
+    rankNotes(records, opts.type, opts.category),
+    opts.query,
+    opts.limit,
+  );
 
 const rec = (
   note: string,
@@ -49,6 +68,31 @@ describe("suggestNotes", () => {
     expect(suggestNotes(records, { type: "expense", query: "star" })).toEqual([
       "Starbucks",
     ]);
+  });
+
+  it("merges case variants, showing the most used spelling", () => {
+    const records = [
+      rec("Lunch"),
+      rec("Lunch"),
+      rec("lunch"),
+      rec("dinner"),
+      rec("dinner"),
+    ];
+    // 3 uses together outrank dinner's 2.
+    expect(suggestNotes(records, { type: "expense" })).toEqual([
+      "Lunch",
+      "dinner",
+    ]);
+  });
+
+  it("keeps a differently cased match, so the stored spelling can be picked", () => {
+    const records = [rec("Starbucks")];
+    expect(
+      suggestNotes(records, { type: "expense", query: "starbucks" }),
+    ).toEqual(["Starbucks"]);
+    expect(
+      suggestNotes(records, { type: "expense", query: "Starbucks" }),
+    ).toEqual([]);
   });
 
   it("ignores blank notes and notes of the other type, and trims", () => {

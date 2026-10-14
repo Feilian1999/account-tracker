@@ -1,6 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { nextTick } from "vue";
 import { describe, expect, it, vi } from "vitest";
+import NoteSuggestions from "../src/components/NoteSuggestions.vue";
 import BookAddRecordSheet from "../src/components/books/BookAddRecordSheet.vue";
 
 const record = {
@@ -17,8 +18,13 @@ const record = {
 
 vi.mock("../src/stores/tracker", () => ({
   useTrackerStore: () => ({
-    records: [record],
-    personalRecords: [],
+    // Notes elsewhere must not be offered in this book's sheet.
+    records: [
+      record,
+      { ...record, id: "other", bookId: "other-book", note: "Other book" },
+    ],
+    personalRecords: [{ ...record, id: "mine", note: "Therapy" }],
+    currentBookRecords: [record],
     recordTemplates: [],
     allCategories: [
       {
@@ -38,38 +44,51 @@ vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key, locale: { value: "en" } }),
 }));
 
+const mountSheet = (props: { editRecordId?: string } = {}) =>
+  mount(BookAddRecordSheet, {
+    props: {
+      modelValue: false,
+      bookName: "Trip",
+      currency: "TWD" as const,
+      members: [
+        { id: "member-1", name: "Alice" },
+        { id: "member-2", name: "Bob" },
+      ],
+      ...props,
+    },
+    global: {
+      mocks: {
+        $t: (key: string) => key,
+        $te: () => false,
+      },
+      stubs: {
+        RecordSheetLayout: {
+          template: '<div><slot name="header-actions" /><slot /></div>',
+        },
+        CalculatorKeyboard: {
+          template: '<div data-testid="calculator" />',
+        },
+        CategoryPickerSheet: true,
+        CategoryIcon: true,
+        CloseButton: true,
+        BaseButton: true,
+      },
+    },
+  });
+
 describe("BookAddRecordSheet", () => {
+  it("suggests only this book's notes", async () => {
+    const wrapper = mountSheet();
+    await wrapper.setProps({ modelValue: true });
+    await nextTick();
+
+    expect(wrapper.findComponent(NoteSuggestions).props("notes")).toEqual([
+      "Lunch",
+    ]);
+  });
+
   it("shows split controls immediately when reopening a record with a saved amount", async () => {
-    const wrapper = mount(BookAddRecordSheet, {
-      props: {
-        modelValue: false,
-        bookName: "Trip",
-        currency: "TWD" as const,
-        members: [
-          { id: "member-1", name: "Alice" },
-          { id: "member-2", name: "Bob" },
-        ],
-        editRecordId: record.id,
-      },
-      global: {
-        mocks: {
-          $t: (key: string) => key,
-          $te: () => false,
-        },
-        stubs: {
-          RecordSheetLayout: {
-            template: '<div><slot name="header-actions" /><slot /></div>',
-          },
-          CalculatorKeyboard: {
-            template: '<div data-testid="calculator" />',
-          },
-          CategoryPickerSheet: true,
-          CategoryIcon: true,
-          CloseButton: true,
-          BaseButton: true,
-        },
-      },
-    });
+    const wrapper = mountSheet({ editRecordId: record.id });
 
     await wrapper.setProps({ modelValue: true });
     await nextTick();
