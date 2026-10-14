@@ -1,5 +1,6 @@
 import { useTrackerStore } from "../stores/tracker";
 import { formatLocalDate, formatLocalDateWithWeekday } from "./date";
+import { findCategoryByName } from "./categoryLookup";
 
 /**
  * Unified color configuration for categories.
@@ -45,8 +46,7 @@ export const colorMapFull = colorMap;
 export function getCategoryIcon(categoryName: string): string {
   const store = useTrackerStore();
   return (
-    store.allCategories.find((c) => c.name === categoryName)?.icon ??
-    "more_horiz"
+    findCategoryByName(store.allCategories, categoryName)?.icon ?? "more_horiz"
   );
 }
 
@@ -59,7 +59,7 @@ export function getCategoryBg(categoryName: string): {
 } {
   const store = useTrackerStore();
   const color =
-    store.allCategories.find((c) => c.name === categoryName)?.color ?? "gray";
+    findCategoryByName(store.allCategories, categoryName)?.color ?? "gray";
   return colorMap[color] ?? colorMap.gray;
 }
 

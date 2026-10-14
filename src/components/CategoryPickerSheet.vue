@@ -46,7 +46,7 @@
           "
         >
           {{
-            $te(`categories.${cat.id}`) ? $t(`categories.${cat.id}`) : cat.name
+            categoryLabel(cat, $t, $te)
           }}
         </span>
       </button>
@@ -58,6 +58,7 @@
 import BaseBottomSheet from "./BaseBottomSheet.vue";
 import CategoryIcon from "./CategoryIcon.vue";
 import type { Category } from "../stores/types";
+import { categoryLabel } from "../utils/categoryLookup";
 
 /**
  * Category chooser for the record/template sheets.

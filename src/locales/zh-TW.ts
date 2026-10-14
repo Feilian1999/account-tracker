@@ -264,6 +264,11 @@ export default {
     backToList: "返回列表",
     themeColor: "主題色",
     chooseIcon: "選擇圖示",
+    editTitle: "編輯分類",
+    tapToEdit: "點選分類即可修改名稱、圖示與顏色",
+    nameTaken: "已有同名的分類",
+    renameNote: "改名會一併更新個人紀錄與未分享帳本中的紀錄；共享帳本的紀錄維持原名稱。",
+    resetDefault: "恢復預設",
     // Defaults translations
     e1: "飲食",
     e2: "交通",

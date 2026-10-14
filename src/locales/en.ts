@@ -264,6 +264,11 @@ export default {
     backToList: "Back to list",
     themeColor: "Theme Color",
     chooseIcon: "Choose Icon",
+    editTitle: "Edit Category",
+    tapToEdit: "Tap a category to change its name, icon or color",
+    nameTaken: "A category with this name already exists",
+    renameNote: "Renaming also updates your personal records and records in unshared books; records in shared books keep the old name.",
+    resetDefault: "Restore default",
     // Defaults translations
     e1: "Food",
     e2: "Transport",

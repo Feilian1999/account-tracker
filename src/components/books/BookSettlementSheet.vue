@@ -168,6 +168,7 @@ import { useTrackerStore } from "../../stores/tracker";
 import type { Settlement, Member } from "../../stores/tracker";
 import type { CategoryBreakdownItem } from "../statistics/CategoryBreakdown.vue";
 import { colorMap } from "../../utils/category";
+import { categoryLabel, findCategoryByName } from "../../utils/categoryLookup";
 import { formatMoney } from "../../utils/currency";
 import type { MemberStat } from "../../utils/settlement";
 import type { CurrencyCode } from "../../stores/types";
@@ -212,20 +213,15 @@ function openMemberCategory(member: Member) {
   showMemberCategory.value = true;
 }
 
-const categoryMap = computed(
-  () => new Map(store.allCategories.map((cat) => [cat.name, cat]))
-);
-
 function getCategoryStyle(categoryName: string) {
-  const cat = categoryMap.value.get(categoryName);
+  const cat = findCategoryByName(store.allCategories, categoryName);
   const color = cat?.color ?? "gray";
   return { icon: cat?.icon ?? "more_horiz", ...(colorMap[color] ?? colorMap.gray) };
 }
 
 function getLocalizedName(categoryName: string) {
-  const cat = categoryMap.value.get(categoryName);
-  if (cat && te(`categories.${cat.id}`)) return t(`categories.${cat.id}`);
-  return categoryName;
+  const cat = findCategoryByName(store.allCategories, categoryName);
+  return cat ? categoryLabel(cat, t, te) : categoryName;
 }
 
 const selectedMemberCategoryItems = computed((): CategoryBreakdownItem[] => {

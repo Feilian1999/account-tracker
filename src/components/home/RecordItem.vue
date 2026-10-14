@@ -62,6 +62,7 @@
 import { useI18n } from "vue-i18n";
 import { useTrackerStore, type PersonalRecord } from "../../stores/tracker";
 import { colorMap } from "../../utils/category";
+import { categoryLabel, findCategoryByName } from "../../utils/categoryLookup";
 import CategoryIcon from "../CategoryIcon.vue";
 import RecordAmount from "../RecordAmount.vue";
 
@@ -78,8 +79,12 @@ defineEmits<{
 const store = useTrackerStore();
 const { t, te } = useI18n();
 
+const findCategory = (categoryName: string) =>
+  findCategoryByName(store.allCategories, categoryName) ??
+  store.allCategories.find((c) => c.id === categoryName);
+
 const getCategoryStyle = (categoryName: string) => {
-  const cat = store.allCategories.find((c) => c.name === categoryName || c.id === categoryName);
+  const cat = findCategory(categoryName);
   const color = cat?.color ?? "gray";
   return {
     icon: cat?.icon ?? "more_horiz",
@@ -88,8 +93,7 @@ const getCategoryStyle = (categoryName: string) => {
 };
 
 const getLocalizedCategoryName = (categoryName: string) => {
-  const cat = store.allCategories.find((c) => c.name === categoryName || c.id === categoryName);
-  if (cat && te(`categories.${cat.id}`)) return t(`categories.${cat.id}`);
-  return categoryName;
+  const cat = findCategory(categoryName);
+  return cat ? categoryLabel(cat, t, te) : categoryName;
 };
 </script>

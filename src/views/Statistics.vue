@@ -180,6 +180,7 @@ import SummaryBar from "../components/SummaryBar.vue";
 import type { DateFilter } from "../components/DateFilterBar.vue";
 import { useTrackerStore } from "../stores/tracker";
 import { colorMap } from "../utils/category";
+import { categoryLabel, findCategoryByName } from "../utils/categoryLookup";
 import { getDaysInMonth, getLocalDateString } from "../utils/date";
 import {
   amountCurrencyOf,
@@ -254,13 +255,8 @@ const selectCategoryTab = (tab: "expense" | "income", event: KeyboardEvent) => {
   tabs?.[tab === "expense" ? 0 : 1].focus();
 };
 
-const categoryMap = computed(
-  () =>
-    new Map(store.allCategories.map((category) => [category.name, category])),
-);
-
 const getCategoryStyle = (categoryName: string) => {
-  const category = categoryMap.value.get(categoryName);
+  const category = findCategoryByName(store.allCategories, categoryName);
   const color = category?.color ?? "gray";
   return {
     icon: category?.icon ?? "more_horiz",
@@ -269,10 +265,8 @@ const getCategoryStyle = (categoryName: string) => {
 };
 
 const getLocalizedCategoryName = (categoryName: string) => {
-  const category = categoryMap.value.get(categoryName);
-  if (category && te(`categories.${category.id}`))
-    return t(`categories.${category.id}`);
-  return categoryName;
+  const category = findCategoryByName(store.allCategories, categoryName);
+  return category ? categoryLabel(category, t, te) : categoryName;
 };
 
 const categoryTotal = computed(() =>

@@ -183,11 +183,20 @@ current member; every consumer expands it. `paidById` is `""` for income.
   The sheets resolve the picked id to `cat.name` on submit.
 - `RecordTemplate.category` stores the category **id**. `Home.vue`'s one-tap
   template path converts id → name before `addPersonalRecord`.
-- Lookups therefore match by name (`utils/category.ts`, Statistics,
-  settlement) and some also accept an id (`RecordItem.vue`). Renaming a custom
-  category — or a record whose category was deleted — falls back to the
-  `more_horiz` icon and the raw string. Keep new code consistent with the field
-  it touches; don't "fix" one side without migrating stored data.
+- Lookups therefore match by name — always through `findCategoryByName`
+  (`utils/categoryLookup.ts`), which also lets a renamed default claim records
+  under its original name; `RecordItem.vue` also accepts an id. A record whose
+  category was deleted falls back to the `more_horiz` icon and the raw string.
+  Keep new code consistent with the field it touches; don't "fix" one side
+  without migrating stored data.
+- **Editing a category** (`updateCategory`, `CategorySettingsModal`): name,
+  icon and colour; never the type. A rename rewrites the `category` of personal
+  records and unshared-book records of that type (marking them unsynced) —
+  shared books are left alone so one device's naming isn't pushed to every
+  member. Defaults live only in `constants.ts`, so their edits are a local
+  `CATEGORY_OVERRIDES` map (written by `categories.ts`, not in `save()`, not
+  backed up — like `DELETED_CATEGORIES`); `resetDefaultCategory` restores one.
+  Two categories of one type may not share a name (the modal blocks it).
 
 **`UserProfile.id` vs `memberId` — do not conflate them.** `id` is the secret
 cloud-backup key (a capability token; it must never leave the device except to
@@ -484,9 +493,9 @@ locally.
 - Locale is detected from `navigator.language` on first run and persisted under
   `account-tracker-lang`.
 - Category labels: default categories are translated by id
-  (`categories.e1`, …), custom ones are not. Hence the pervasive
-  `$te('categories.'+id) ? $t('categories.'+id) : cat.name` fallback.
-  See `src/i18n.ts`.
+  (`categories.e1`, …) while they keep their original name; custom and renamed
+  ones show `cat.name`. Use `categoryLabel(cat, t, te)` from
+  `utils/categoryLookup.ts`, never the bare `$te('categories.'+id)` check.
 
 ---
 

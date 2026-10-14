@@ -6,6 +6,7 @@ import type {
   PersonalRecord,
   UserProfile,
   Category,
+  CategoryOverride,
   RecordTemplate,
 } from "./types";
 import {
@@ -65,6 +66,7 @@ export const useTrackerStore = defineStore("tracker", () => {
 
   const customCategories = ref<Category[]>([]);
   const deletedCategoryIds = ref<string[]>([]);
+  const categoryOverrides = ref<Record<string, CategoryOverride>>({});
   const recordTemplates = ref<RecordTemplate[]>([]);
   /** Shared-book CRDT replicas by bookId (see books.ts). */
   const sharedDocs = ref<Record<string, SharedDocState>>({});
@@ -105,6 +107,7 @@ export const useTrackerStore = defineStore("tracker", () => {
         loadedUserProfile,
         loadedCustomCategories,
         loadedDeletedCategories,
+        loadedCategoryOverrides,
         loadedTemplates,
         loadedPendingDeleteRecords,
         loadedPendingDeletePersonalRecords,
@@ -122,6 +125,10 @@ export const useTrackerStore = defineStore("tracker", () => {
         loadFromStorage(STORAGE_KEYS.USER_PROFILE, userProfileDefaults),
         loadFromStorage(STORAGE_KEYS.CUSTOM_CATEGORIES, []),
         loadFromStorage(STORAGE_KEYS.DELETED_CATEGORIES, []),
+        loadFromStorage<Record<string, CategoryOverride>>(
+          STORAGE_KEYS.CATEGORY_OVERRIDES,
+          {},
+        ),
         loadFromStorage(STORAGE_KEYS.TEMPLATES, []),
         loadFromStorage(STORAGE_KEYS.PENDING_DELETE_RECORDS, []),
         loadFromStorage(STORAGE_KEYS.PENDING_DELETE_PERSONAL_RECORDS, []),
@@ -165,6 +172,7 @@ export const useTrackerStore = defineStore("tracker", () => {
 
       customCategories.value = loadedCustomCategories || [];
       deletedCategoryIds.value = loadedDeletedCategories || [];
+      categoryOverrides.value = loadedCategoryOverrides || {};
       recordTemplates.value = loadedTemplates || [];
 
       pendingDeleteRecordIds.value = loadedPendingDeleteRecords || [];
@@ -238,7 +246,13 @@ export const useTrackerStore = defineStore("tracker", () => {
   const categoryActions = setupCategoryActions(
     customCategories,
     deletedCategoryIds,
+    categoryOverrides,
     pendingDeleteCustomCategoryIds,
+    books,
+    records,
+    personalRecords,
+    sharedDocs,
+    save,
   );
   const bookActions = setupBookActions(
     books,

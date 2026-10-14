@@ -135,6 +135,9 @@ export interface Category {
   isSynced?: boolean;
 }
 
+/** Local edits to a default category (STORAGE_KEYS.CATEGORY_OVERRIDES). */
+export type CategoryOverride = Partial<Pick<Category, "name" | "icon" | "color">>;
+
 export interface Settlement {
   from: Member;
   to: Member;

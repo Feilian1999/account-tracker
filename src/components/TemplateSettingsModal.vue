@@ -116,7 +116,7 @@
         <span class="text-sm font-semibold text-gray-600 dark:text-gray-400 w-16 shrink-0">{{ $t("common.category") }}</span>
         <span class="flex-1 flex items-center justify-end gap-2">
           <span class="text-sm font-bold" :class="newForm.type === 'expense' ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'">
-            {{ selectedCategoryObj ? ($te('categories.' + selectedCategoryObj.id) ? $t('categories.' + selectedCategoryObj.id) : selectedCategoryObj.name) : $t('common.select') }}
+            {{ selectedCategoryObj ? categoryLabel(selectedCategoryObj, $t, $te) : $t('common.select') }}
           </span>
           <span v-if="selectedCategoryObj" class="flex h-6 w-6 items-center justify-center rounded-[6px] text-white shadow-sm" :class="newForm.type === 'expense' ? 'bg-red-600' : 'bg-emerald-600'">
             <CategoryIcon :name="selectedCategoryObj.icon" class="text-[14px]" />
@@ -184,6 +184,7 @@ import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useTrackerStore, type RecordTemplate } from "../stores/tracker";
 import { colorMapFull as colorMap } from "../utils/category";
+import { categoryLabel } from "../utils/categoryLookup";
 import BaseButton from "./BaseButton.vue";
 import CategoryIcon from "./CategoryIcon.vue";
 import BaseBottomSheet from "./BaseBottomSheet.vue";

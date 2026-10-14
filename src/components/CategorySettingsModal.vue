@@ -2,78 +2,31 @@
   <BaseBottomSheet
     :modelValue="true"
     @update:modelValue="$emit('close')"
-    :title="isCreating ? $t('categories.addConfirm') : $t('categories.settingsTitle')"
+    :title="mode === 'create' ? $t('categories.addConfirm') : mode === 'edit' ? $t('categories.editTitle') : $t('categories.settingsTitle')"
     maxHeight="h-[85vh]"
     roundedClass="rounded-t-[2rem]"
     contentClass="flex-1 overflow-y-auto"
   >
     <!-- List View -->
-    <div v-if="!isCreating" class="px-4 py-6">
-      <!-- Expense -->
-      <div class="mb-6">
+    <div v-if="mode === 'list'" class="px-4 py-6">
+      <p class="hint-text mb-4 px-2">{{ $t("categories.tapToEdit") }}</p>
+      <div v-for="section in sections" :key="section.type" class="mb-6">
         <h3 class="mb-3 flex items-center justify-between px-2 text-sm font-bold text-gray-500 dark:text-gray-400">
-          {{ $t("common.expense") }}
-          <span class="text-xs font-normal text-gray-400 dark:text-gray-500">{{ expenseCats.length }}</span>
+          {{ $t(`common.${section.type}`) }}
+          <span class="text-xs font-normal text-gray-400 dark:text-gray-500">{{ section.cats.length }}</span>
         </h3>
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div
-            v-for="cat in expenseCats"
+            v-for="cat in section.cats"
             :key="cat.id"
-            class="flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-3 shadow-sm transition-colors dark:border-gray-700 dark:bg-gray-800"
+            class="flex items-center justify-between rounded-2xl border border-gray-100 bg-white shadow-sm transition-colors dark:border-gray-700 dark:bg-gray-800"
           >
-            <div class="flex items-center gap-3 overflow-hidden">
-              <div
-                :class="[
-                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl',
-                  colorMap[cat.color]?.bg,
-                  colorMap[cat.color]?.text,
-                ]"
-              >
-                <CategoryIcon :name="cat.icon" />
-              </div>
-              <span
-                class="truncate text-sm font-bold text-gray-700 dark:text-gray-200"
-                >{{ $te(`categories.${cat.id}`) ? $t(`categories.${cat.id}`) : cat.name }}</span
-              >
-            </div>
             <button
-              v-if="!cat.isDefault"
-              @click="confirmDeleteCategory(cat.id, cat.name)"
-              class="ml-1 shrink-0 p-1 text-gray-400 transition-colors hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400"
-              :title="$t('common.delete')"
+              type="button"
+              class="flex min-w-0 flex-1 items-center gap-3 p-3 text-left active:opacity-60"
+              @click="openEdit(cat)"
             >
-              <svg
-                class="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Income -->
-      <div class="mb-6">
-        <h3 class="mb-3 flex items-center justify-between px-2 text-sm font-bold text-gray-500 dark:text-gray-400">
-          {{ $t("common.income") }}
-          <span class="text-xs font-normal text-gray-400 dark:text-gray-500">{{ incomeCats.length }}</span>
-        </h3>
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <div
-            v-for="cat in incomeCats"
-            :key="cat.id"
-            class="flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-3 shadow-sm transition-colors dark:border-gray-700 dark:bg-gray-800"
-          >
-            <div class="flex items-center gap-3 overflow-hidden">
-              <div
+              <span
                 :class="[
                   'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl',
                   colorMap[cat.color]?.bg,
@@ -81,13 +34,14 @@
                 ]"
               >
                 <CategoryIcon :name="cat.icon" />
-              </div>
-              <span class="truncate text-sm font-bold text-gray-700 dark:text-gray-200">{{ $te(`categories.${cat.id}`) ? $t(`categories.${cat.id}`) : cat.name }}</span>
-            </div>
+              </span>
+              <span class="truncate text-sm font-bold text-gray-700 dark:text-gray-200">{{ categoryLabel(cat, t, te) }}</span>
+            </button>
             <button
               v-if="!cat.isDefault"
-              @click="confirmDeleteCategory(cat.id, cat.name)"
-              class="ml-1 shrink-0 p-1 text-gray-400 transition-colors hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400"
+              type="button"
+              @click="confirmDeleteCategory(cat)"
+              class="mr-2 shrink-0 p-1 text-gray-400 transition-colors hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400"
               :title="$t('common.delete')"
             >
               <svg
@@ -109,11 +63,11 @@
       </div>
     </div>
 
-    <!-- Create View -->
+    <!-- Create / Edit View -->
     <div v-else class="space-y-6 px-5 py-6">
       <div class="mb-4">
         <button
-          @click="isCreating = false"
+          @click="mode = 'list'"
           class="flex items-center gap-1 text-sm font-bold text-blue-600 dark:text-blue-400"
         >
           <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -123,8 +77,8 @@
         </button>
       </div>
 
-      <!-- Type -->
-      <div class="flex rounded-xl bg-gray-200/60 p-1 transition-colors dark:bg-gray-800">
+      <!-- Type (fixed once created: records of the category carry it) -->
+      <div v-if="mode === 'create'" class="flex rounded-xl bg-gray-200/60 p-1 transition-colors dark:bg-gray-800">
         <button
           type="button"
           @click="newForm.type = 'expense'"
@@ -171,6 +125,12 @@
             class="w-full border-b-2 border-gray-200 bg-transparent px-2 py-3 text-lg font-bold text-gray-800 outline-none transition-colors focus:border-blue-500 dark:border-gray-600 dark:text-gray-100 dark:focus:border-blue-400"
           />
         </div>
+        <p v-if="nameTaken" class="mt-2 text-xs font-semibold text-red-500 dark:text-red-400">
+          {{ $t("categories.nameTaken") }}
+        </p>
+        <p v-else-if="mode === 'edit'" class="hint-text mt-2">
+          {{ $t("categories.renameNote") }}
+        </p>
       </div>
 
       <!-- Color -->
@@ -217,12 +177,22 @@
     </div>
 
     <template #footer>
-      <BaseButton v-if="!isCreating" class="w-full shadow-lg shadow-blue-500/30" @click="openCreate">
+      <BaseButton v-if="mode === 'list'" class="w-full shadow-lg shadow-blue-500/30" @click="openCreate">
         <span class="mr-1 text-lg">+</span> {{ $t("categories.addCategory") }}
       </BaseButton>
-      <BaseButton v-else class="w-full" :disabled="!newForm.name.trim()" @click="saveCustomCategory">
-        {{ $t("categories.addConfirm") }}
-      </BaseButton>
+      <div v-else class="flex gap-3">
+        <BaseButton
+          v-if="canReset"
+          variant="secondary"
+          class="w-full"
+          @click="resetEditing"
+        >
+          {{ $t("categories.resetDefault") }}
+        </BaseButton>
+        <BaseButton class="w-full" :disabled="!canSubmit" @click="submit">
+          {{ mode === "create" ? $t("categories.addConfirm") : $t("common.save") }}
+        </BaseButton>
+      </div>
     </template>
   </BaseBottomSheet>
 </template>
@@ -231,7 +201,10 @@
 import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useTrackerStore } from "../stores/tracker";
+import type { Category } from "../stores/types";
+import { defaultCategories } from "../stores/constants";
 import { colorMapFull as colorMap } from "../utils/category";
+import { categoryLabel, defaultCategoryName } from "../utils/categoryLookup";
 import BaseButton from "./BaseButton.vue";
 import CategoryIcon from "./CategoryIcon.vue";
 import BaseBottomSheet from "./BaseBottomSheet.vue";
@@ -240,19 +213,20 @@ const store = useTrackerStore();
 const emit = defineEmits(["close"]);
 const { t, te } = useI18n();
 
-const isCreating = ref(false);
+const mode = ref<"list" | "create" | "edit">("list");
+/** The category being edited, as it was when the edit view opened. */
+const editing = ref<Category | null>(null);
 
-const expenseCats = computed(() =>
-  store.allCategories.filter((c) => c.type === "expense"),
-);
-const incomeCats = computed(() =>
-  store.allCategories.filter((c) => c.type === "income"),
+const sections = computed(() =>
+  (["expense", "income"] as const).map((type) => ({
+    type,
+    cats: store.allCategories.filter((c) => c.type === type),
+  })),
 );
 
-const confirmDeleteCategory = async (id: string, name: string) => {
-  const transName = te(`categories.${id}`) ? t(`categories.${id}`) : name;
-  if (confirm(t("categories.deleteConfirm", { name: transName }))) {
-    await store.deleteCustomCategory(id);
+const confirmDeleteCategory = async (cat: Category) => {
+  if (confirm(t("categories.deleteConfirm", { name: categoryLabel(cat, t, te) }))) {
+    await store.deleteCustomCategory(cat.id);
   }
 };
 
@@ -280,17 +254,76 @@ const openCreate = () => {
     color: "blue",
     icon: "restaurant",
   };
-  isCreating.value = true;
+  editing.value = null;
+  mode.value = "create";
 };
 
-const saveCustomCategory = async () => {
-  if (!newForm.value.name.trim()) return;
-  await store.addCustomCategory({
-    name: newForm.value.name.trim(),
-    type: newForm.value.type,
-    color: newForm.value.color,
-    icon: newForm.value.icon,
-  });
-  isCreating.value = false;
+const openEdit = (cat: Category) => {
+  // A default category opens under its translated label.
+  newForm.value = {
+    type: cat.type,
+    name: categoryLabel(cat, t, te),
+    color: cat.color,
+    icon: cat.icon,
+  };
+  editing.value = { ...cat };
+  mode.value = "edit";
+};
+
+/**
+ * Records find their category by name, so two categories of one type may not
+ * share a name — counting what each is shown as and, for a default, the
+ * original name its older records still carry.
+ */
+const nameTaken = computed(() => {
+  const name = newForm.value.name.trim();
+  if (!name) return false;
+  return store.allCategories.some(
+    (c) =>
+      c.type === newForm.value.type &&
+      c.id !== editing.value?.id &&
+      [c.name, categoryLabel(c, t, te), defaultCategoryName(c.id)].includes(name),
+  );
+});
+
+const canSubmit = computed(() => !!newForm.value.name.trim() && !nameTaken.value);
+
+/** A default category that has been renamed or restyled can be restored. */
+const canReset = computed(() => {
+  const original = defaultCategories.find((c) => c.id === editing.value?.id);
+  const current = store.allCategories.find((c) => c.id === original?.id);
+  return (
+    !!original &&
+    !!current &&
+    (["name", "icon", "color"] as const).some((k) => current[k] !== original[k])
+  );
+});
+
+const submit = async () => {
+  if (!canSubmit.value) return;
+  const name = newForm.value.name.trim();
+  if (mode.value === "create") {
+    await store.addCustomCategory({
+      name,
+      type: newForm.value.type,
+      color: newForm.value.color,
+      icon: newForm.value.icon,
+    });
+  } else if (editing.value) {
+    const cat = editing.value;
+    await store.updateCategory(cat.id, {
+      // An untouched translated label keeps the stored name.
+      name: name === categoryLabel(cat, t, te) ? cat.name : name,
+      color: newForm.value.color,
+      icon: newForm.value.icon,
+    });
+  }
+  mode.value = "list";
+};
+
+const resetEditing = async () => {
+  if (!editing.value) return;
+  await store.resetDefaultCategory(editing.value.id);
+  mode.value = "list";
 };
 </script>

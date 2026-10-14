@@ -156,9 +156,9 @@
             "
           >
             {{
-              $te(`categories.${currentCategoryId}`)
-                ? $t(`categories.${currentCategoryId}`)
-                : currentCategoryObj?.name || $t("common.select")
+              currentCategoryObj
+                ? categoryLabel(currentCategoryObj, $t, $te)
+                : $t("common.select")
             }}
           </span>
           <span
@@ -458,6 +458,7 @@ import { computed, nextTick, ref, toRef, watch } from "vue";
 import { useTrackerStore } from "../../stores/tracker";
 import type { Member } from "../../stores/tracker";
 import { colorMap } from "../../utils/category";
+import { categoryLabel, findCategoryByName } from "../../utils/categoryLookup";
 import RecordSheetLayout from "../RecordSheetLayout.vue";
 import BaseButton from "../BaseButton.vue";
 import CloseButton from "../CloseButton.vue";
@@ -725,8 +726,10 @@ watch(
       if (props.editRecordId) {
         const r = store.records.find((x) => x.id === props.editRecordId);
         if (r) {
-          const cat = store.allCategories.find(
-            (c) => c.name === r.category && c.type === r.type,
+          const cat = findCategoryByName(
+            store.allCategories,
+            r.category,
+            r.type,
           );
           // Edit what was typed, in the currency it was typed in: a foreign
           // custom split keeps its typed per-member amounts on `original`.

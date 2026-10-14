@@ -254,6 +254,7 @@ import { activeMembers, isSelf } from "../../utils/member";
 import { currencyOf, formatMoney } from "../../utils/currency";
 import { useTrackerStore } from "../../stores/tracker";
 import { formatDate, getCategoryBg, getCategoryIcon } from "../../utils/category";
+import { categoryLabel, findCategoryByName } from "../../utils/categoryLookup";
 
 const props = defineProps<{
   bookId: string;
@@ -287,11 +288,8 @@ const initPull = async () => {
 initPull();
 
 const getLocalizedCategoryName = (categoryName: string) => {
-  const categoryId = store.allCategories.find((category) => category.name === categoryName)?.id;
-  if (categoryId && te(`categories.${categoryId}`)) {
-    return t(`categories.${categoryId}`);
-  }
-  return categoryName;
+  const category = findCategoryByName(store.allCategories, categoryName);
+  return category ? categoryLabel(category, t, te) : categoryName;
 };
 
 const bookDateFilter = ref<DateFilter>({ mode: "all", year: "", month: "", date: "" });

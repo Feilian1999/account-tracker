@@ -264,6 +264,11 @@ export default {
     backToList: "リストに戻る",
     themeColor: "テーマカラー",
     chooseIcon: "アイコンを選択",
+    editTitle: "カテゴリーを編集",
+    tapToEdit: "カテゴリーをタップして名前・アイコン・色を変更",
+    nameTaken: "同じ名前のカテゴリーがあります",
+    renameNote: "名前を変更すると、個人の記録と共有していない帳簿の記録も更新されます。共有帳簿の記録は元の名前のままです。",
+    resetDefault: "デフォルトに戻す",
     // Defaults translations
     e1: "食費",
     e2: "交通費",

@@ -154,9 +154,9 @@
             "
           >
             {{
-              $te(`categories.${currentCategoryId}`)
-                ? $t(`categories.${currentCategoryId}`)
-                : currentCategoryObj?.name || $t("common.select")
+              currentCategoryObj
+                ? categoryLabel(currentCategoryObj, $t, $te)
+                : $t("common.select")
             }}
           </span>
           <span
@@ -251,6 +251,7 @@ import { computed, nextTick, ref, toRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useTrackerStore } from "../../stores/tracker";
 import { colorMap } from "../../utils/category";
+import { categoryLabel, findCategoryByName } from "../../utils/categoryLookup";
 import CloseButton from "../CloseButton.vue";
 import CategoryIcon from "../CategoryIcon.vue";
 import CalculatorKeyboard from "../CalculatorKeyboard.vue";
@@ -435,8 +436,10 @@ watch(
         );
         if (r) {
           // Backward compatibility: Find ID by name if it's an old record or just store name
-          const cat = store.allCategories.find(
-            (c) => c.name === r.category && c.type === r.type,
+          const cat = findCategoryByName(
+            store.allCategories,
+            r.category,
+            r.type,
           );
           // Edit what was typed, in the currency it was typed in.
           const original = originalOf(r);
