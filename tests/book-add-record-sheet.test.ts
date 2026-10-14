@@ -18,13 +18,16 @@ const record = {
 
 vi.mock("../src/stores/tracker", () => ({
   useTrackerStore: () => ({
-    // Notes elsewhere must not be offered in this book's sheet.
+    // A shared book: notes from anywhere else must not be offered in it.
+    books: [
+      { id: "book-1", name: "Trip", members: [], shareCode: "ABCDEFGH" },
+      { id: "other-book", name: "Solo", members: [] },
+    ],
     records: [
       record,
       { ...record, id: "other", bookId: "other-book", note: "Other book" },
     ],
     personalRecords: [{ ...record, id: "mine", note: "Therapy" }],
-    currentBookRecords: [record],
     recordTemplates: [],
     allCategories: [
       {
@@ -35,7 +38,7 @@ vi.mock("../src/stores/tracker", () => ({
         color: "red",
       },
     ],
-    currentBookId: null,
+    currentBookId: "book-1",
     pullSharedBook: vi.fn(),
   }),
 }));
@@ -77,7 +80,7 @@ const mountSheet = (props: { editRecordId?: string } = {}) =>
   });
 
 describe("BookAddRecordSheet", () => {
-  it("suggests only this book's notes", async () => {
+  it("suggests only a shared book's own notes", async () => {
     const wrapper = mountSheet();
     await wrapper.setProps({ modelValue: true });
     await nextTick();

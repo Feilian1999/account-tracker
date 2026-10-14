@@ -1,4 +1,9 @@
-import type { Category } from "../stores/types";
+import type {
+  Book,
+  Category,
+  PersonalRecord,
+  RecordItem,
+} from "../stores/types";
 import { defaultCategoryName } from "./categoryLookup";
 
 export interface NoteSource {
@@ -14,13 +19,45 @@ interface RankedNote {
   key: string;
 }
 
-interface NoteStats {
-  key: string;
-  count: number;
+interface Usage {
+  /** Uses with the picked category. */
   inCategory: number;
+  count: number;
   lastDate: string;
-  /** Uses (and latest date) per spelling, to pick the one to show. */
-  variants: Map<string, { count: number; lastDate: string }>;
+}
+
+/** Most used with the picked category, then most used, then most recent. */
+const byUse = (a: Usage, b: Usage) =>
+  b.inCategory - a.inCategory ||
+  b.count - a.count ||
+  b.lastDate.localeCompare(a.lastDate);
+
+/**
+ * The records whose notes a record form may suggest. A shared book's sheet
+ * offers only that book's notes: a tap syncs the note to every member, so the
+ * user's personal notes (or another book's) must never be one tap away there.
+ * Everywhere else the user's own writing is offered: personal records and
+ * unshared books — never shared books, which hold other members' writing.
+ */
+export function noteSourcesFor(
+  bookId: string | null | undefined,
+  data: {
+    books: Book[];
+    records: RecordItem[];
+    personalRecords: PersonalRecord[];
+  },
+): NoteSource[] {
+  const book = data.books.find((b) => b.id === bookId);
+  if (book?.shareCode) {
+    return data.records.filter((r) => r.bookId === book.id);
+  }
+  const unshared = new Set(
+    data.books.filter((b) => !b.shareCode).map((b) => b.id),
+  );
+  return [
+    ...data.personalRecords,
+    ...data.records.filter((r) => unshared.has(r.bookId)),
+  ];
 }
 
 /**
@@ -29,8 +66,9 @@ interface NoteStats {
  * themselves, so they are there from day one and travel with the backup.
  *
  * Only notes of the same type count; notes differing only in case are one
- * entry. Ranked by: used with the picked category, then how often, then how
- * recently. Independent of what is being typed, so typing only re-filters.
+ * entry, shown in the spelling most used the same way. Ranked by: used with
+ * the picked category, then how often, then how recently. Independent of what
+ * is being typed, so typing only re-filters.
  */
 export function rankNotes(
   records: NoteSource[],
@@ -42,40 +80,37 @@ export function rankNotes(
     category ? [category.name, defaultCategoryName(category.id)] : [],
   );
 
-  const stats = new Map<string, NoteStats>();
+  // Case-folded note → spelling → its usage.
+  const byKey = new Map<string, Map<string, Usage>>();
   for (const r of records) {
     if (r.type !== type) continue;
     const note = r.note?.trim();
     if (!note) continue;
     const key = note.toLowerCase();
-    let s = stats.get(key);
-    if (!s) {
-      s = { key, count: 0, inCategory: 0, lastDate: "", variants: new Map() };
-      stats.set(key, s);
-    }
-    s.count++;
-    if (categoryNames.has(r.category)) s.inCategory++;
-    if (r.date > s.lastDate) s.lastDate = r.date;
-    const v = s.variants.get(note) ?? { count: 0, lastDate: "" };
-    v.count++;
-    if (r.date > v.lastDate) v.lastDate = r.date;
-    s.variants.set(note, v);
+    const variants = byKey.get(key) ?? new Map<string, Usage>();
+    byKey.set(key, variants);
+    const u = variants.get(note) ?? { inCategory: 0, count: 0, lastDate: "" };
+    variants.set(note, u);
+    u.count++;
+    if (categoryNames.has(r.category)) u.inCategory++;
+    if (r.date > u.lastDate) u.lastDate = r.date;
   }
 
-  return [...stats.values()]
-    .sort(
-      (a, b) =>
-        b.inCategory - a.inCategory ||
-        b.count - a.count ||
-        b.lastDate.localeCompare(a.lastDate),
-    )
-    .map((s) => {
-      const [note] = [...s.variants].sort(
-        ([, a], [, b]) =>
-          b.count - a.count || b.lastDate.localeCompare(a.lastDate),
-      )[0];
-      return { note, key: s.key };
-    });
+  return [...byKey]
+    .map(([key, variants]) => {
+      let best: [string, Usage] | undefined;
+      const total: Usage = { inCategory: 0, count: 0, lastDate: "" };
+      for (const entry of variants) {
+        const [, u] = entry;
+        total.inCategory += u.inCategory;
+        total.count += u.count;
+        if (u.lastDate > total.lastDate) total.lastDate = u.lastDate;
+        if (!best || byUse(u, best[1]) < 0) best = entry;
+      }
+      return { note: best![0], key, total };
+    })
+    .sort((a, b) => byUse(a.total, b.total))
+    .map(({ note, key }) => ({ note, key }));
 }
 
 /**

@@ -1,9 +1,15 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 import NoteSuggestions from "../src/components/NoteSuggestions.vue";
-import type { Category } from "../src/stores/types";
+import type {
+  Book,
+  Category,
+  PersonalRecord,
+  RecordItem,
+} from "../src/stores/types";
 import {
   filterNotes,
+  noteSourcesFor,
   rankNotes,
   type NoteSource,
 } from "../src/utils/noteSuggestions";
@@ -85,6 +91,19 @@ describe("suggestNotes", () => {
     ]);
   });
 
+  it("shows the spelling used with the picked category", () => {
+    const records = [
+      rec("Coffee", "飲食"),
+      rec("coffee", "其他"),
+      rec("coffee", "其他"),
+      rec("coffee", "其他"),
+    ];
+    expect(
+      suggestNotes(records, { type: "expense", category: cat("e1", "飲食") }),
+    ).toEqual(["Coffee"]);
+    expect(suggestNotes(records, { type: "expense" })).toEqual(["coffee"]);
+  });
+
   it("keeps a differently cased match, so the stored spelling can be picked", () => {
     const records = [rec("Starbucks")];
     expect(
@@ -120,6 +139,33 @@ describe("suggestNotes", () => {
     expect(suggestNotes(records, { type: "expense", limit: 3 })).toHaveLength(
       3,
     );
+  });
+});
+
+describe("noteSourcesFor", () => {
+  const books = [
+    { id: "solo", name: "Solo", members: [], createdAt: "" },
+    { id: "trip", name: "Trip", members: [], createdAt: "", shareCode: "X" },
+    { id: "work", name: "Work", members: [], createdAt: "", shareCode: "Y" },
+  ] as Book[];
+  const bookRec = (bookId: string) =>
+    ({ ...rec(`${bookId} note`), id: bookId, bookId }) as RecordItem;
+  const data = {
+    books,
+    records: [bookRec("solo"), bookRec("trip"), bookRec("work")],
+    personalRecords: [{ ...rec("mine"), id: "p" } as PersonalRecord],
+  };
+  const notesOf = (bookId: string | null) =>
+    noteSourcesFor(bookId, data).map((r) => r.note);
+
+  it("offers the user's own notes outside shared books", () => {
+    // Personal sheet and an unshared book's sheet: personal + unshared books.
+    expect(notesOf(null)).toEqual(["mine", "solo note"]);
+    expect(notesOf("solo")).toEqual(["mine", "solo note"]);
+  });
+
+  it("offers a shared book only its own notes", () => {
+    expect(notesOf("trip")).toEqual(["trip note"]);
   });
 });
 

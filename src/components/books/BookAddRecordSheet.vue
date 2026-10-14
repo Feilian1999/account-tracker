@@ -471,6 +471,7 @@ import CalculatorKeyboard from "../CalculatorKeyboard.vue";
 import CategoryPickerSheet from "../CategoryPickerSheet.vue";
 import NoteSuggestions from "../NoteSuggestions.vue";
 import { useNoteSuggestions } from "../../composables/useNoteSuggestions";
+import { noteSourcesFor } from "../../utils/noteSuggestions";
 import MemberAvatar from "../MemberAvatar.vue";
 import { getLocalDateString } from "../../utils/date";
 import { parseAmountExpression } from "../../utils/amountExpression";
@@ -564,11 +565,10 @@ const activeCats = computed(() =>
 const currentCategoryObj = computed(() =>
   activeCats.value.find((c) => c.id === form.value.categoryId),
 );
-// Notes typed before, for one-tap reuse — this book's records only: a tap
-// syncs the note to every member of a shared book, so personal notes and
-// other books' notes must not be offered here.
+// Notes typed before, for one-tap reuse (noteSourcesFor: a shared book
+// offers only its own notes).
 const noteSuggestions = useNoteSuggestions({
-  records: () => store.currentBookRecords,
+  records: () => noteSourcesFor(store.currentBookId, store),
   type: () => form.value.type,
   category: () => currentCategoryObj.value,
   query: () => form.value.note,
