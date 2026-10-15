@@ -27,6 +27,14 @@ vi.mock("../src/stores/tracker", () => ({
   useTrackerStore: () => store,
 }));
 
+const dialog = vi.hoisted(() => ({ answer: true, asked: 0 }));
+vi.mock("../src/composables/useDialog", () => ({
+  confirmDialog: async () => {
+    dialog.asked++;
+    return dialog.answer;
+  },
+}));
+
 vi.mock("vue-i18n", () => ({
   useI18n: () => ({ locale: { value: "en" }, t: (key: string) => key }),
 }));
@@ -66,4 +74,44 @@ describe("Home filter mode", () => {
 
     expect(wrapper.find('[data-testid="month-selector"]').exists()).toBe(false);
   });
+
+  it.each([
+    [true, 1],
+    [false, 0],
+  ])(
+    "asks before deleting a record (confirmed: %s)",
+    async (answer, deletes) => {
+      dialog.answer = answer;
+      dialog.asked = 0;
+      const today = new Date();
+      store.personalRecords[0].date = [
+        today.getFullYear(),
+        String(today.getMonth() + 1).padStart(2, "0"),
+        String(today.getDate()).padStart(2, "0"),
+      ].join("-");
+      const wrapper = mount(Home, {
+        global: {
+          mocks: { $t: (key: string) => key },
+          stubs: {
+            CategoryIcon: { template: "<span />" },
+            DraggableFab: { template: "<button />" },
+            MonthSelector: { template: "<div />" },
+            TemplateSettingsModal: { template: "<div />" },
+            AddPersonalRecordSheet: { template: "<div />" },
+            DailyRecordGroup: {
+              template:
+                "<button data-testid='delete' @click=\"$emit('delete', 'record-1')\" />",
+            },
+            ImportFromBookSheet: { template: "<div />" },
+          },
+        },
+      });
+
+      await wrapper.get("[data-testid='delete']").trigger("click");
+      await new Promise((r) => setTimeout(r));
+
+      expect(dialog.asked).toBe(1);
+      expect(store.deletePersonalRecord).toHaveBeenCalledTimes(deletes);
+    },
+  );
 });

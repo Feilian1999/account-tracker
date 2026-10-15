@@ -1,5 +1,9 @@
 export default {
   common: {
+    ok: "OK",
+    overwrite: "Overwrite",
+    deleteRecordTitle: "Delete record",
+    deleteRecordConfirm: "Delete this record? This can't be undone.",
     expense: "Expense",
     income: "Income",
     cancel: "Cancel",

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import type { Book, RecordItem, UserProfile } from "../src/stores/types";
 import type { SharedDocState } from "../src/utils/crdt";
@@ -9,6 +9,11 @@ vi.mock("../src/utils/api", async () => {
   return { ...server.api, __server: server };
 });
 
+// Joining a book that exists locally asks to overwrite it: always yes.
+vi.mock("../src/composables/useDialog", () => ({
+  confirmDialog: async () => true,
+}));
+
 import * as api from "../src/utils/api";
 import { setupBookActions } from "../src/stores/books";
 import { calcMemberStats } from "../src/utils/settlement";
@@ -17,10 +22,6 @@ type Server = ReturnType<
   typeof import("./helpers/fakeSharedServer").createFakeServer
 >;
 const server = (api as unknown as { __server: Server }).__server;
-
-beforeEach(() => {
-  vi.stubGlobal("confirm", () => true);
-});
 
 /** One device: its own store state, like a separate phone. */
 const device = (

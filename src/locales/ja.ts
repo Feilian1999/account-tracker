@@ -1,5 +1,9 @@
 export default {
   common: {
+    ok: "OK",
+    overwrite: "上書き",
+    deleteRecordTitle: "記録を削除",
+    deleteRecordConfirm: "この記録を削除しますか？元に戻せません。",
     expense: "支出",
     income: "収入",
     cancel: "キャンセル",

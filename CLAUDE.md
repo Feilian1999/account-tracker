@@ -470,8 +470,12 @@ locally.
   re-spelling the utilities.
 - **Older overlays** (`JoinBookModal`, `ShareBookModal`,
   `MonthSelector`'s picker) hand-roll `Teleport` + `role="dialog"` instead of
-  using `BaseBottomSheet`; they still register with `useEscapeKey`. Confirms and
-  prompts use native `confirm()` / `prompt()`.
+  using `BaseBottomSheet`; they still register with `useEscapeKey`.
+- **Confirms and prompts** go through `confirmDialog` / `promptDialog`
+  (`composables/useDialog.ts`, rendered once by `AppDialog` in `App.vue`),
+  never native `confirm()` / `prompt()` / `alert()`. They return promises and
+  work from stores too; requests queue. Pass `danger: true` for destructive
+  actions (red button, focus starts on Cancel). Deleting anything asks first.
 - **Totals are never truncated.** Home's header is `IncomeExpenseSummary`:
   total income (left) and expense (right), sized by `useFitText`, over
   `WaterBar`: income fills from the left to its share and meets expense at a

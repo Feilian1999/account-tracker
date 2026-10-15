@@ -303,6 +303,7 @@ import { colorMap } from "../utils/category";
 import { storedCategoryName } from "../utils/categoryLookup";
 import { getLocalDateString, getLocalYearMonthString } from "../utils/date";
 import { useEscapeKey } from "../composables/useEscapeKey";
+import { confirmDialog } from "../composables/useDialog";
 import { usePrimaryAction } from "../composables/usePrimaryAction";
 import { useToast } from "../composables/useToast";
 import { useI18n } from "vue-i18n";
@@ -431,6 +432,11 @@ const getTemplateCategoryStyle = (categoryId: string) => {
 };
 
 const handleDeletePersonalRecord = async (id: string) => {
-  await store.deletePersonalRecord(id);
+  const ok = await confirmDialog({
+    title: t("common.deleteRecordTitle"),
+    message: t("common.deleteRecordConfirm"),
+    danger: true,
+  });
+  if (ok) await store.deletePersonalRecord(id);
 };
 </script>

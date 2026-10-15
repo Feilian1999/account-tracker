@@ -205,6 +205,7 @@ import type { Category } from "../stores/types";
 import { defaultCategories } from "../stores/constants";
 import { colorMapFull as colorMap } from "../utils/category";
 import { categoryLabel, defaultCategoryName } from "../utils/categoryLookup";
+import { confirmDialog } from "../composables/useDialog";
 import BaseButton from "./BaseButton.vue";
 import CategoryIcon from "./CategoryIcon.vue";
 import BaseBottomSheet from "./BaseBottomSheet.vue";
@@ -225,7 +226,11 @@ const sections = computed(() =>
 );
 
 const confirmDeleteCategory = async (cat: Category) => {
-  if (confirm(t("categories.deleteConfirm", { name: categoryLabel(cat, t, te) }))) {
+  const ok = await confirmDialog({
+    message: t("categories.deleteConfirm", { name: categoryLabel(cat, t, te) }),
+    danger: true,
+  });
+  if (ok) {
     await store.deleteCustomCategory(cat.id);
   }
 };

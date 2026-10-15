@@ -1,5 +1,9 @@
 export default {
   common: {
+    ok: "確定",
+    overwrite: "覆蓋",
+    deleteRecordTitle: "刪除紀錄",
+    deleteRecordConfirm: "確定要刪除這筆紀錄嗎？刪除後無法復原。",
     expense: "支出",
     income: "收入",
     cancel: "取消",

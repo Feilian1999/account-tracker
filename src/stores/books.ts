@@ -31,6 +31,7 @@ import {
   type SharedDocState,
 } from "../utils/crdt";
 import { i18n } from "../i18n";
+import { confirmDialog } from "../composables/useDialog";
 
 // ---- Debounce helper (keyed by the first argument) ----
 // A shared timer would let a mutation on book B cancel book A's pending sync,
@@ -447,14 +448,14 @@ export function setupBookActions(
     try {
       const existing = books.value.find((b) => b.id === preview.book.id);
       if (existing) {
-        if (
-          !confirm(
-            i18n.global.t("books.joinOverwriteConfirm", {
-              name: existing.name,
-            }),
-          )
-        )
-          return;
+        const overwrite = await confirmDialog({
+          message: i18n.global.t("books.joinOverwriteConfirm", {
+            name: existing.name,
+          }),
+          confirmText: i18n.global.t("common.overwrite"),
+          danger: true,
+        });
+        if (!overwrite) return;
         records.value = records.value.filter((r) => r.bookId !== existing.id);
         books.value = books.value.filter((b) => b.id !== existing.id);
       }

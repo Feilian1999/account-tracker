@@ -58,6 +58,7 @@ import { ref, useId, watch, toRef } from "vue";
 import { useI18n } from "vue-i18n";
 import { useTrackerStore } from "../../stores/tracker";
 import { useEscapeKey } from "../../composables/useEscapeKey";
+import { promptDialog } from "../../composables/useDialog";
 
 const props = defineProps<{
   modelValue: boolean;
@@ -100,7 +101,11 @@ const copyCode = async () => {
     }, 2000);
   } catch (err) {
     console.error("Failed to copy:", err);
-    prompt(t("books.share.copyManually"), props.shareCode);
+    await promptDialog({
+      message: t("books.share.copyManually"),
+      defaultValue: props.shareCode,
+      readOnly: true,
+    });
   }
 };
 </script>

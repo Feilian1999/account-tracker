@@ -4,6 +4,7 @@ import { pushSyncByUUID, pullSyncByUUID } from "../utils/api";
 import { saveToStorage, STORAGE_KEYS } from "./storage";
 import { useToast } from "../composables/useToast";
 import { i18n } from "../i18n";
+import { confirmDialog } from "../composables/useDialog";
 import { currencyOf } from "../utils/currency";
 
 /**
@@ -100,9 +101,19 @@ export function setupCloudSyncActions(
 
     const pendingCount = countPending();
     if (pendingCount > 0) {
-      if (!confirm(t("sync.confirmOverwriteWithPending", { count: pendingCount }))) return false;
+      const ok = await confirmDialog({
+        message: t("sync.confirmOverwriteWithPending", { count: pendingCount }),
+        confirmText: t("common.overwrite"),
+        danger: true,
+      });
+      if (!ok) return false;
     } else {
-      if (!confirm(t("sync.confirmOverwrite"))) return false;
+      const ok = await confirmDialog({
+        message: t("sync.confirmOverwrite"),
+        confirmText: t("common.overwrite"),
+        danger: true,
+      });
+      if (!ok) return false;
     }
 
     isSyncing.value = true;

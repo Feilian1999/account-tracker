@@ -355,6 +355,7 @@ import CategorySettingsModal from "../components/CategorySettingsModal.vue";
 import ProfileSettingItem from "../components/ProfileSettingItem.vue";
 import TemplateSettingsModal from "../components/TemplateSettingsModal.vue";
 import { useToast } from "../composables/useToast";
+import { promptDialog } from "../composables/useDialog";
 import { useTrackerStore } from "../stores/tracker";
 import { parseEverydayCSV } from "../utils/everydayImport";
 import { parsePiggyBackup } from "../utils/piggyImport";
@@ -439,7 +440,10 @@ const handleBackupByUUID = async () => {
 
 const handleRestoreByUUID = async () => {
   if (store.isSyncing) return;
-  const uuid = prompt(t("profile.restoreByUUIDPrompt"));
+  const uuid = await promptDialog({
+    message: t("profile.restoreByUUIDPrompt"),
+    placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  });
   if (uuid && uuid.trim()) {
     await store.restoreByUUID(uuid.trim());
   }

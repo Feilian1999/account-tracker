@@ -185,6 +185,7 @@ import { useI18n } from "vue-i18n";
 import { useTrackerStore, type RecordTemplate } from "../stores/tracker";
 import { colorMapFull as colorMap } from "../utils/category";
 import { categoryLabel } from "../utils/categoryLookup";
+import { confirmDialog } from "../composables/useDialog";
 import BaseButton from "./BaseButton.vue";
 import CategoryIcon from "./CategoryIcon.vue";
 import BaseBottomSheet from "./BaseBottomSheet.vue";
@@ -235,7 +236,7 @@ function getCategoryIcon(id: string) {
 }
 
 const deleteTemplate = async (id: string, name: string) => {
-  if (confirm(t("templates.deleteConfirm", { name }))) {
+  if (await confirmDialog({ message: t("templates.deleteConfirm", { name }), danger: true })) {
     await store.deleteTemplate(id);
   }
 };

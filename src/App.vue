@@ -10,6 +10,7 @@
     </router-view>
     <BottomNav v-if="store.isProfileSet" />
     <ToastContainer />
+    <AppDialog />
     <BaseBottomSheet v-model="showShortcutHelp" :title="$t('shortcuts.title')">
       <dl class="space-y-4">
         <div v-for="shortcut in shortcuts" :key="shortcut.keys" class="flex items-center justify-between gap-4">
@@ -30,6 +31,7 @@ import { useRouter } from "vue-router";
 import { useTrackerStore } from "./stores/tracker";
 import BottomNav from "./components/BottomNav.vue";
 import ToastContainer from "./components/ToastContainer.vue";
+import AppDialog from "./components/AppDialog.vue";
 import BaseBottomSheet from "./components/BaseBottomSheet.vue";
 import { runPrimaryAction } from "./composables/usePrimaryAction";
 

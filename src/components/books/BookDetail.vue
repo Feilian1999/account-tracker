@@ -247,6 +247,7 @@ import CategoryIcon from "../CategoryIcon.vue";
 import DateFilterBar from "../DateFilterBar.vue";
 import DraggableFab from "../DraggableFab.vue";
 import { useEscapeKey } from "../../composables/useEscapeKey";
+import { confirmDialog } from "../../composables/useDialog";
 import { useFitText } from "../../composables/useFitText";
 import RecordAmount from "../RecordAmount.vue";
 import MemberAvatar from "../MemberAvatar.vue";
@@ -392,14 +393,23 @@ useFitText(
 
 const confirmDelete = async () => {
   if (!book.value) return;
-  if (window.confirm(t("books.deleteConfirm", { name: book.value.name }))) {
+  const ok = await confirmDialog({
+    message: t("books.deleteConfirm", { name: book.value.name }),
+    danger: true,
+  });
+  if (ok) {
     await store.deleteBook(book.value.id);
     emit("back");
   }
 };
 
 const handleDeleteRecord = async (id: string) => {
-  await store.deleteRecord(id);
+  const ok = await confirmDialog({
+    title: t("common.deleteRecordTitle"),
+    message: t("common.deleteRecordConfirm"),
+    danger: true,
+  });
+  if (ok) await store.deleteRecord(id);
 };
 </script>
 
