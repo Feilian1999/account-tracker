@@ -364,7 +364,12 @@ usePrimaryAction(toRef(props, "modelValue"), () => submit(), 1);
 watch(
   () => props.modelValue,
   (open) => {
-    if (open) nextTick(() => amountInput.value?.focus());
+    // Focusing the amount opens the calculator: only when there is no amount
+    // yet (a record being edited, or a template with one, opens without it).
+    if (open)
+      nextTick(() => {
+        if (!isValidAmount.value) amountInput.value?.focus();
+      });
   },
 );
 
