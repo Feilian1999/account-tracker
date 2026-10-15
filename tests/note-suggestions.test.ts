@@ -135,7 +135,7 @@ describe("suggestNotes", () => {
 
   it("caps the list", () => {
     const records = Array.from({ length: 20 }, (_, i) => rec(`note ${i}`));
-    expect(suggestNotes(records, { type: "expense" })).toHaveLength(8);
+    expect(suggestNotes(records, { type: "expense" })).toHaveLength(12);
     expect(suggestNotes(records, { type: "expense", limit: 3 })).toHaveLength(
       3,
     );

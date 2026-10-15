@@ -122,7 +122,7 @@ export function rankNotes(
 export function filterNotes(
   ranked: RankedNote[],
   query = "",
-  limit = 8,
+  limit = 12,
 ): string[] {
   const typed = query.trim();
   const lower = typed.toLowerCase();
