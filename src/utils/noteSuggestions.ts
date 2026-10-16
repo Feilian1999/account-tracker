@@ -7,6 +7,23 @@ interface RankedNote {
   key: string;
 }
 
+/** Notes of a type are one entry ignoring case and surrounding spaces. */
+export const noteKey = (text: string) => text.trim().toLowerCase();
+
+/**
+ * Best first: pinned, then uses with the category (when one is given), uses,
+ * and last use. Shared by the suggestions and Profile's list.
+ */
+export function compareSavedNotes(categoryKey?: string) {
+  const inCategory = (n: SavedNote) =>
+    categoryKey ? (n.categories[categoryKey] ?? 0) : 0;
+  return (a: SavedNote, b: SavedNote) =>
+    Number(b.pinned) - Number(a.pinned) ||
+    inCategory(b) - inCategory(a) ||
+    b.count - a.count ||
+    b.lastUsed.localeCompare(a.lastUsed);
+}
+
 /**
  * The saved notes of a type, best first — the input to one-tap note
  * suggestions. Pinned notes come first; then by uses with the picked category,
@@ -18,19 +35,12 @@ export function rankSavedNotes(
   type: Category["type"],
   category?: Category,
 ): RankedNote[] {
-  const categoryKey = category ? storedCategoryName(category) : undefined;
-  const inCategory = (n: SavedNote) =>
-    categoryKey ? (n.categories[categoryKey] ?? 0) : 0;
   return notes
     .filter((n) => n.type === type && n.text.trim())
     .sort(
-      (a, b) =>
-        Number(b.pinned) - Number(a.pinned) ||
-        inCategory(b) - inCategory(a) ||
-        b.count - a.count ||
-        b.lastUsed.localeCompare(a.lastUsed),
+      compareSavedNotes(category ? storedCategoryName(category) : undefined),
     )
-    .map((n) => ({ note: n.text, key: n.text.toLowerCase() }));
+    .map((n) => ({ note: n.text, key: noteKey(n.text) }));
 }
 
 /**

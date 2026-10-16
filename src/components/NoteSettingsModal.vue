@@ -110,6 +110,7 @@ import { useTrackerStore } from "../stores/tracker";
 import type { SavedNote } from "../stores/types";
 import { confirmDialog, promptDialog } from "../composables/useDialog";
 import { useToast } from "../composables/useToast";
+import { compareSavedNotes, noteKey } from "../utils/noteSuggestions";
 import BaseBottomSheet from "./BaseBottomSheet.vue";
 import BaseButton from "./BaseButton.vue";
 
@@ -123,21 +124,13 @@ const toast = useToast();
 const tabs = ["expense", "income"] as const;
 const type = ref<SavedNote["type"]>("expense");
 
-/** Pinned first, then most used, then most recently used. */
+/** Same order as the suggestions, without a category. */
 const notes = computed(() =>
   store.savedNotes
     .filter((n) => n.type === type.value)
     .slice()
-    .sort(
-      (a, b) =>
-        Number(b.pinned) - Number(a.pinned) ||
-        b.count - a.count ||
-        b.lastUsed.localeCompare(a.lastUsed),
-    ),
+    .sort(compareSavedNotes()),
 );
-
-const sameText = (a: string, b: string) =>
-  a.trim().toLowerCase() === b.trim().toLowerCase();
 
 const add = async () => {
   const text = await promptDialog({
@@ -160,7 +153,10 @@ const rename = async (note: SavedNote) => {
   });
   if (!text?.trim() || text.trim() === note.text) return;
   const other = store.savedNotes.find(
-    (n) => n.id !== note.id && n.type === note.type && sameText(n.text, text),
+    (n) =>
+      n.id !== note.id &&
+      n.type === note.type &&
+      noteKey(n.text) === noteKey(text),
   );
   if (
     other &&

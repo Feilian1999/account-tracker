@@ -532,9 +532,10 @@ const submit = async () => {
       note: form.value.note,
     };
 
-    // Only a note typed now counts as a use: re-saving an edit doesn't.
-    const noteBefore = props.editRecordId
-      ? store.personalRecords.find((r) => r.id === props.editRecordId)?.note
+    // Re-saving an edit with the same note, type and category is not a new
+    // use of the note; a new record, or a changed one, is.
+    const before = props.editRecordId
+      ? store.personalRecords.find((r) => r.id === props.editRecordId)
       : undefined;
     if (props.editRecordId) {
       await store.updatePersonalRecord(props.editRecordId, data);
@@ -556,7 +557,13 @@ const submit = async () => {
         });
       }
     }
-    if (data.note.trim() && data.note.trim() !== noteBefore?.trim()) {
+    if (
+      data.note.trim() &&
+      (!before ||
+        data.note.trim() !== before.note?.trim() ||
+        data.type !== before.type ||
+        data.category !== before.category)
+    ) {
       await store.rememberNote(data.type, data.note, data.category);
     }
     emit("update:modelValue", false);

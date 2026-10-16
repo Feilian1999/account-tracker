@@ -1,8 +1,7 @@
 import type { Ref } from "vue";
 import type { SavedNote } from "./types";
 import { saveToStorage, STORAGE_KEYS } from "./storage";
-
-const keyOf = (text: string) => text.trim().toLowerCase();
+import { noteKey } from "../utils/noteSuggestions";
 
 /**
  * The saved note list behind the record sheets' one-tap suggestions. Local
@@ -16,7 +15,9 @@ export function setupNoteActions(savedNotes: Ref<SavedNote[]>) {
   const find = (type: SavedNote["type"], text: string, exceptId?: string) =>
     savedNotes.value.find(
       (n) =>
-        n.type === type && n.id !== exceptId && keyOf(n.text) === keyOf(text),
+        n.type === type &&
+        n.id !== exceptId &&
+        noteKey(n.text) === noteKey(text),
     );
 
   /**

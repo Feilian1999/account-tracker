@@ -1,6 +1,6 @@
 import type { Ref } from "vue";
 import { computed } from "vue";
-import type { Book, Category, CategoryOverride, PersonalRecord, RecordItem } from "./types";
+import type { Book, Category, CategoryOverride, PersonalRecord, RecordItem, SavedNote } from "./types";
 import { defaultCategories } from "./constants";
 import { saveToStorage, STORAGE_KEYS } from "./storage";
 import { isSharedBook } from "../utils/book";
@@ -19,6 +19,7 @@ export function setupCategoryActions(
   books: Ref<Book[]>,
   records: Ref<RecordItem[]>,
   personalRecords: Ref<PersonalRecord[]>,
+  savedNotes: Ref<SavedNote[]>,
   save: () => Promise<void>
 ) {
   const allCategories = computed(() =>
@@ -51,6 +52,19 @@ export function setupCategoryActions(
       });
     }
     if (changed) await save();
+  };
+
+  /** Saved notes count their uses per category name: move those counts too. */
+  const renameInSavedNotes = async (type: Category["type"], from: string, to: string) => {
+    let changed = false;
+    for (const note of savedNotes.value) {
+      const uses = note.categories[from];
+      if (note.type !== type || !uses) continue;
+      delete note.categories[from];
+      note.categories[to] = (note.categories[to] ?? 0) + uses;
+      changed = true;
+    }
+    if (changed) await saveToStorage(STORAGE_KEYS.SAVED_NOTES, savedNotes.value);
   };
 
   /** Whether a category other than `id` of this type claims records named `name`. */
@@ -94,6 +108,7 @@ export function setupCategoryActions(
     await saveToStorage(STORAGE_KEYS.CUSTOM_CATEGORIES, customCategories.value);
     if (name !== cat.name && !nameClaimedByOther(id, cat.type, cat.name)) {
       await renameInRecords(cat.type, cat.name, name);
+      await renameInSavedNotes(cat.type, cat.name, name);
     }
   };
 

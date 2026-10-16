@@ -949,9 +949,10 @@ const handleSubmit = async () => {
       splitCustomAmounts: splitCustomAmountsOut,
     };
 
-    // Only a note typed now counts as a use: re-saving an edit doesn't.
-    const noteBefore = props.editRecordId
-      ? store.records.find((r) => r.id === props.editRecordId)?.note
+    // Re-saving an edit with the same note, type and category is not a new
+    // use of the note; a new record, or a changed one, is.
+    const before = props.editRecordId
+      ? store.records.find((r) => r.id === props.editRecordId)
       : undefined;
     if (props.editRecordId) {
       await store.updateRecord(props.editRecordId, data);
@@ -973,7 +974,13 @@ const handleSubmit = async () => {
         });
       }
     }
-    if (data.note.trim() && data.note.trim() !== noteBefore?.trim()) {
+    if (
+      data.note.trim() &&
+      (!before ||
+        data.note.trim() !== before.note?.trim() ||
+        data.type !== before.type ||
+        data.category !== before.category)
+    ) {
       await store.rememberNote(data.type, data.note, data.category);
     }
     close();

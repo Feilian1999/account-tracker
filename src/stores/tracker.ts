@@ -260,6 +260,7 @@ export const useTrackerStore = defineStore("tracker", () => {
     books,
     records,
     personalRecords,
+    savedNotes,
     save,
   );
   const bookActions = setupBookActions(

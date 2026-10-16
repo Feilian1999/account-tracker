@@ -147,12 +147,25 @@ describe("saving a note to the saved list", () => {
     expect(store.updatePersonalRecord).toHaveBeenCalled();
     expect(store.rememberNote).not.toHaveBeenCalled();
 
-    await noteInput(wrapper).setValue("Brunch");
+    // Same note, now income: a use under the new type.
+    store.rememberNote.mockClear();
+    await wrapper
+      .findAll("button")
+      .find((b) => b.text().includes("common.income"))!
+      .trigger("click");
     await save(wrapper);
     expect(store.rememberNote).toHaveBeenCalledWith(
-      "expense",
+      "income",
+      "Lunch",
+      expect.any(String),
+    );
+
+    await noteInput(wrapper).setValue("Brunch");
+    await save(wrapper);
+    expect(store.rememberNote).toHaveBeenLastCalledWith(
+      "income",
       "Brunch",
-      "Food",
+      expect.any(String),
     );
   });
 });

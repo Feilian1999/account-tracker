@@ -6,6 +6,7 @@ import type {
   CategoryOverride,
   PersonalRecord,
   RecordItem,
+  SavedNote,
 } from "../src/stores/types";
 
 const saved = vi.hoisted(() => new Map<string, unknown>());
@@ -81,6 +82,17 @@ function setup(extraCategories: Category[] = []) {
       bookRecord("solo", "飲食"),
       bookRecord("shared", "飲食"),
     ]),
+    savedNotes: ref<SavedNote[]>([
+      {
+        id: "n1",
+        text: "Latte",
+        type: "expense",
+        pinned: false,
+        count: 4,
+        categories: { Coffee: 3, 飲食: 1 },
+        lastUsed: "2026-10-01T00:00:00.000Z",
+      },
+    ]),
     personalRecords: ref<PersonalRecord[]>([
       personal("Coffee"),
       personal("飲食"),
@@ -98,6 +110,7 @@ function setup(extraCategories: Category[] = []) {
     state.books,
     state.records,
     state.personalRecords,
+    state.savedNotes,
     state.save,
   );
   return { ...state, actions, custom };
@@ -138,6 +151,8 @@ describe("updateCategory", () => {
     ]);
     expect(s.personalRecords.value[0].isSynced).toBe(false);
     expect(s.personalRecords.value[1].isSynced).toBe(true);
+    // Saved notes' per-category uses follow the rename.
+    expect(s.savedNotes.value[0].categories).toEqual({ Café: 3, 飲食: 1 });
     expect(s.save).toHaveBeenCalledOnce();
   });
 
