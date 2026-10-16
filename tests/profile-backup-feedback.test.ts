@@ -82,6 +82,7 @@ describe("Profile backup feedback", () => {
               "<button type='button' @click=\"$emit('click')\">{{ title }}</button>",
           },
           TemplateSettingsModal: { template: "<div />" },
+          NoteSettingsModal: { template: "<div />" },
         },
       },
     });

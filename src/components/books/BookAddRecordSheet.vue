@@ -475,7 +475,6 @@ import CalculatorKeyboard from "../CalculatorKeyboard.vue";
 import CategoryPickerSheet from "../CategoryPickerSheet.vue";
 import NoteSuggestions from "../NoteSuggestions.vue";
 import { useNoteSuggestions } from "../../composables/useNoteSuggestions";
-import { noteSourcesFor } from "../../utils/noteSuggestions";
 import MemberAvatar from "../MemberAvatar.vue";
 import { getLocalDateString } from "../../utils/date";
 import { parseAmountExpression } from "../../utils/amountExpression";
@@ -569,10 +568,10 @@ const activeCats = computed(() =>
 const currentCategoryObj = computed(() =>
   activeCats.value.find((c) => c.id === form.value.categoryId),
 );
-// Notes typed before, for one-tap reuse (noteSourcesFor: a shared book
-// offers only its own notes).
+// One-tap note suggestions, from the saved note list (Profile → frequent
+// notes); a note saved with a record is added to it.
 const noteSuggestions = useNoteSuggestions({
-  records: () => noteSourcesFor(store.currentBookId, store),
+  notes: () => store.savedNotes,
   type: () => form.value.type,
   category: () => currentCategoryObj.value,
   query: () => form.value.note,
@@ -950,6 +949,10 @@ const handleSubmit = async () => {
       splitCustomAmounts: splitCustomAmountsOut,
     };
 
+    // Only a note typed now counts as a use: re-saving an edit doesn't.
+    const noteBefore = props.editRecordId
+      ? store.records.find((r) => r.id === props.editRecordId)?.note
+      : undefined;
     if (props.editRecordId) {
       await store.updateRecord(props.editRecordId, data);
     } else {
@@ -969,6 +972,9 @@ const handleSubmit = async () => {
           note: form.value.note,
         });
       }
+    }
+    if (data.note.trim() && data.note.trim() !== noteBefore?.trim()) {
+      await store.rememberNote(data.type, data.note, data.category);
     }
     close();
   } finally {

@@ -1,40 +1,32 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { ref } from "vue";
 import NoteSuggestions from "../src/components/NoteSuggestions.vue";
-import type {
-  Book,
-  Category,
-  PersonalRecord,
-  RecordItem,
-} from "../src/stores/types";
-import {
-  filterNotes,
-  noteSourcesFor,
-  rankNotes,
-  type NoteSource,
-} from "../src/utils/noteSuggestions";
+import type { Category, SavedNote } from "../src/stores/types";
+import { filterNotes, rankSavedNotes } from "../src/utils/noteSuggestions";
 
-const suggestNotes = (
-  records: NoteSource[],
-  opts: {
-    type: Category["type"];
-    category?: Category;
-    query?: string;
-    limit?: number;
-  },
-) =>
-  filterNotes(
-    rankNotes(records, opts.type, opts.category),
-    opts.query,
-    opts.limit,
-  );
+const saved = vi.hoisted(() => new Map<string, unknown>());
+vi.mock("../src/stores/storage", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/stores/storage")>()),
+  saveToStorage: vi.fn(async (key: string, data: unknown) => {
+    saved.set(key, JSON.parse(JSON.stringify(data)));
+    return true;
+  }),
+}));
 
-const rec = (
-  note: string,
-  category = "飲食",
-  date = "2026-10-01",
-  type: Category["type"] = "expense",
-) => ({ note, category, date, type });
+import { setupNoteActions } from "../src/stores/notes";
+import { STORAGE_KEYS } from "../src/stores/storage";
+
+const note = (text: string, over: Partial<SavedNote> = {}): SavedNote => ({
+  id: text,
+  text,
+  type: "expense",
+  pinned: false,
+  count: 1,
+  categories: {},
+  lastUsed: "2026-10-01T00:00:00.000Z",
+  ...over,
+});
 
 const cat = (id: string, name: string): Category => ({
   id,
@@ -45,127 +37,144 @@ const cat = (id: string, name: string): Category => ({
   isDefault: id.startsWith("e"),
 });
 
-describe("suggestNotes", () => {
-  it("ranks notes of the picked category first, then by use, then recency", () => {
-    const records = [
-      rec("捷運", "交通"),
-      rec("捷運", "交通"),
-      rec("捷運", "交通"),
-      rec("午餐", "飲食", "2026-10-01"),
-      rec("午餐", "飲食", "2026-10-02"),
-      rec("早餐", "飲食", "2026-09-01"),
-      rec("晚餐", "飲食", "2026-10-05"),
+const suggest = (
+  notes: SavedNote[],
+  opts: { type?: Category["type"]; category?: Category; query?: string } = {},
+) =>
+  filterNotes(
+    rankSavedNotes(notes, opts.type ?? "expense", opts.category),
+    opts.query,
+  );
+
+describe("rankSavedNotes", () => {
+  it("ranks pinned first, then use with the category, use, and recency", () => {
+    const notes = [
+      note("捷運", { count: 9, categories: { 交通: 9 } }),
+      note("午餐", { count: 3, categories: { 飲食: 3 } }),
+      note("晚餐", {
+        count: 3,
+        categories: { 飲食: 3 },
+        lastUsed: "2026-10-05T00:00:00.000Z",
+      }),
+      note("早餐", { count: 1, categories: { 飲食: 1 } }),
+      note("房租", { count: 0, pinned: true }),
     ];
-    expect(
-      suggestNotes(records, { type: "expense", category: cat("e1", "飲食") }),
-    ).toEqual(["午餐", "晚餐", "早餐", "捷運"]);
-    // Without a category, frequency decides.
-    expect(suggestNotes(records, { type: "expense" })[0]).toBe("捷運");
+    expect(suggest(notes, { category: cat("e1", "飲食") })).toEqual([
+      "房租",
+      "晚餐",
+      "午餐",
+      "早餐",
+      "捷運",
+    ]);
+    // Without a category: pinned, then frequency.
+    expect(suggest(notes).slice(0, 2)).toEqual(["房租", "捷運"]);
   });
 
-  it("filters while typing and drops an exact match", () => {
-    const records = [rec("午餐"), rec("午茶"), rec("晚餐"), rec("Starbucks")];
-    expect(
-      suggestNotes(records, { type: "expense", query: " 午" }).sort(),
-    ).toEqual(["午茶", "午餐"]);
-    expect(suggestNotes(records, { type: "expense", query: "午餐" })).toEqual(
-      [],
-    );
-    expect(suggestNotes(records, { type: "expense", query: "star" })).toEqual([
-      "Starbucks",
+  it("a renamed default matches uses saved under its original name", () => {
+    const notes = [
+      note("捷運", { count: 5, categories: { 交通: 5 } }),
+      note("午餐", { count: 1, categories: { 飲食: 1 } }),
+    ];
+    expect(suggest(notes, { category: cat("e1", "Meals") })).toEqual([
+      "午餐",
+      "捷運",
     ]);
   });
 
-  it("merges case variants, showing the most used spelling", () => {
-    const records = [
-      rec("Lunch"),
-      rec("Lunch"),
-      rec("lunch"),
-      rec("dinner"),
-      rec("dinner"),
-    ];
-    // 3 uses together outrank dinner's 2.
-    expect(suggestNotes(records, { type: "expense" })).toEqual([
-      "Lunch",
-      "dinner",
-    ]);
-  });
-
-  it("shows the spelling used with the picked category", () => {
-    const records = [
-      rec("Coffee", "飲食"),
-      rec("coffee", "其他"),
-      rec("coffee", "其他"),
-      rec("coffee", "其他"),
-    ];
-    expect(
-      suggestNotes(records, { type: "expense", category: cat("e1", "飲食") }),
-    ).toEqual(["Coffee"]);
-    expect(suggestNotes(records, { type: "expense" })).toEqual(["coffee"]);
-  });
-
-  it("keeps a differently cased match, so the stored spelling can be picked", () => {
-    const records = [rec("Starbucks")];
-    expect(
-      suggestNotes(records, { type: "expense", query: "starbucks" }),
-    ).toEqual(["Starbucks"]);
-    expect(
-      suggestNotes(records, { type: "expense", query: "Starbucks" }),
-    ).toEqual([]);
-  });
-
-  it("ignores blank notes and notes of the other type, and trims", () => {
-    const records = [
-      rec(""),
-      rec("   "),
-      rec(" 午餐 "),
-      rec("午餐"),
-      rec("薪水", "薪水", "2026-10-01", "income"),
-    ];
-    expect(suggestNotes(records, { type: "expense" })).toEqual(["午餐"]);
-    expect(suggestNotes(records, { type: "income" })).toEqual(["薪水"]);
-  });
-
-  it("a renamed default still matches records under its original name", () => {
-    const records = [rec("捷運", "交通"), rec("捷運", "交通"), rec("午餐")];
-    expect(
-      suggestNotes(records, { type: "expense", category: cat("e1", "Meals") }),
-    ).toEqual(["午餐", "捷運"]);
-  });
-
-  it("caps the list", () => {
-    const records = Array.from({ length: 20 }, (_, i) => rec(`note ${i}`));
-    expect(suggestNotes(records, { type: "expense" })).toHaveLength(12);
-    expect(suggestNotes(records, { type: "expense", limit: 3 })).toHaveLength(
-      3,
-    );
+  it("keeps to the type", () => {
+    const notes = [note("午餐"), note("薪水", { type: "income" })];
+    expect(suggest(notes)).toEqual(["午餐"]);
+    expect(suggest(notes, { type: "income" })).toEqual(["薪水"]);
   });
 });
 
-describe("noteSourcesFor", () => {
-  const books = [
-    { id: "solo", name: "Solo", members: [], createdAt: "" },
-    { id: "trip", name: "Trip", members: [], createdAt: "", shareCode: "X" },
-    { id: "work", name: "Work", members: [], createdAt: "", shareCode: "Y" },
-  ] as Book[];
-  const bookRec = (bookId: string) =>
-    ({ ...rec(`${bookId} note`), id: bookId, bookId }) as RecordItem;
-  const data = {
-    books,
-    records: [bookRec("solo"), bookRec("trip"), bookRec("work")],
-    personalRecords: [{ ...rec("mine"), id: "p" } as PersonalRecord],
-  };
-  const notesOf = (bookId: string | null) =>
-    noteSourcesFor(bookId, data).map((r) => r.note);
-
-  it("offers the user's own notes outside shared books", () => {
-    // Personal sheet and an unshared book's sheet: personal + unshared books.
-    expect(notesOf(null)).toEqual(["mine", "solo note"]);
-    expect(notesOf("solo")).toEqual(["mine", "solo note"]);
+describe("filterNotes", () => {
+  it("filters by what is typed and drops an exact match", () => {
+    const notes = [note("午餐"), note("午茶"), note("晚餐"), note("Starbucks")];
+    expect(suggest(notes, { query: " 午" }).sort()).toEqual(["午茶", "午餐"]);
+    expect(suggest(notes, { query: "午餐" })).toEqual([]);
+    // A differently cased match stays, so the saved spelling can be picked.
+    expect(suggest(notes, { query: "starbucks" })).toEqual(["Starbucks"]);
   });
 
-  it("offers a shared book only its own notes", () => {
-    expect(notesOf("trip")).toEqual(["trip note"]);
+  it("caps the list at 12", () => {
+    const notes = Array.from({ length: 20 }, (_, i) => note(`note ${i}`));
+    expect(suggest(notes)).toHaveLength(12);
+  });
+});
+
+describe("saved note actions", () => {
+  const setup = (initial: SavedNote[] = []) => {
+    const savedNotes = ref<SavedNote[]>(initial);
+    return { savedNotes, ...setupNoteActions(savedNotes) };
+  };
+
+  it("remembers a new note, and counts another use of a saved one", async () => {
+    const s = setup();
+    await s.rememberNote("expense", " 午餐 ", "飲食");
+    await s.rememberNote("expense", "午餐", "飲食");
+    await s.rememberNote("expense", "午餐", "其他");
+    await s.rememberNote("income", "午餐", "其他");
+    await s.rememberNote("expense", "   ", "飲食");
+
+    expect(s.savedNotes.value).toHaveLength(2);
+    expect(s.savedNotes.value[0]).toMatchObject({
+      text: "午餐",
+      type: "expense",
+      count: 3,
+      categories: { 飲食: 2, 其他: 1 },
+    });
+    expect(saved.get(STORAGE_KEYS.SAVED_NOTES)).toEqual(s.savedNotes.value);
+  });
+
+  it("keeps the saved spelling when used in another case", async () => {
+    const s = setup([note("Starbucks")]);
+    await s.rememberNote("expense", "starbucks", "");
+    expect(s.savedNotes.value).toEqual([
+      expect.objectContaining({ text: "Starbucks", count: 2 }),
+    ]);
+  });
+
+  it("adds by hand, refusing a duplicate", async () => {
+    const s = setup([note("午餐")]);
+    expect(await s.addSavedNote("expense", "晚餐")).toBe(true);
+    expect(await s.addSavedNote("expense", " 午餐")).toBe(false);
+    expect(await s.addSavedNote("income", "午餐")).toBe(true);
+    expect(s.savedNotes.value.map((n) => n.text)).toEqual([
+      "午餐",
+      "晚餐",
+      "午餐",
+    ]);
+    expect(s.savedNotes.value[1].count).toBe(0);
+  });
+
+  it("renames, merging onto an existing note of the type", async () => {
+    const s = setup([
+      note("Lunch", { count: 2, categories: { 飲食: 2 } }),
+      note("lunch box", {
+        count: 1,
+        pinned: true,
+        categories: { 飲食: 1, 其他: 1 },
+      }),
+    ]);
+    await s.renameSavedNote("lunch box", "LUNCH");
+    expect(s.savedNotes.value).toEqual([
+      expect.objectContaining({
+        id: "Lunch",
+        text: "LUNCH",
+        count: 3,
+        pinned: true,
+        categories: { 飲食: 3, 其他: 1 },
+      }),
+    ]);
+  });
+
+  it("pins and deletes", async () => {
+    const s = setup([note("午餐"), note("晚餐")]);
+    await s.setNotePinned("晚餐", true);
+    expect(s.savedNotes.value[1].pinned).toBe(true);
+    await s.deleteSavedNote("午餐");
+    expect(s.savedNotes.value.map((n) => n.text)).toEqual(["晚餐"]);
   });
 });
 

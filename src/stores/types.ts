@@ -135,6 +135,23 @@ export interface Category {
   isSynced?: boolean;
 }
 
+/**
+ * A note offered as a one-tap suggestion (STORAGE_KEYS.SAVED_NOTES). Saved
+ * when a record is saved with it; edited, pinned or deleted in Profile.
+ */
+export interface SavedNote {
+  id: string;
+  text: string;
+  type: "expense" | "income";
+  pinned: boolean;
+  /** Times saved with a record. */
+  count: number;
+  /** Uses per stored category name (see storedCategoryName). */
+  categories: Record<string, number>;
+  /** ISO timestamp of the last use (or of creation). */
+  lastUsed: string;
+}
+
 /** Local edits to a default category (STORAGE_KEYS.CATEGORY_OVERRIDES). */
 export type CategoryOverride = Partial<Pick<Category, "name" | "icon" | "color">>;
 

@@ -18,16 +18,29 @@ const record = {
 
 vi.mock("../src/stores/tracker", () => ({
   useTrackerStore: () => ({
-    // A shared book: notes from anywhere else must not be offered in it.
-    books: [
-      { id: "book-1", name: "Trip", members: [], shareCode: "ABCDEFGH" },
-      { id: "other-book", name: "Solo", members: [] },
+    records: [record],
+    // Suggestions come from the saved list, not from records.
+    savedNotes: [
+      {
+        id: "n1",
+        text: "Taxi",
+        type: "expense",
+        pinned: false,
+        count: 2,
+        categories: {},
+        lastUsed: "2026-10-01T00:00:00.000Z",
+      },
+      {
+        id: "n2",
+        text: "Salary",
+        type: "income",
+        pinned: false,
+        count: 5,
+        categories: {},
+        lastUsed: "2026-10-01T00:00:00.000Z",
+      },
     ],
-    records: [
-      record,
-      { ...record, id: "other", bookId: "other-book", note: "Other book" },
-    ],
-    personalRecords: [{ ...record, id: "mine", note: "Therapy" }],
+    rememberNote: vi.fn(),
     recordTemplates: [],
     allCategories: [
       {
@@ -80,13 +93,13 @@ const mountSheet = (props: { editRecordId?: string } = {}) =>
   });
 
 describe("BookAddRecordSheet", () => {
-  it("suggests only a shared book's own notes", async () => {
+  it("suggests the saved notes of the record's type", async () => {
     const wrapper = mountSheet();
     await wrapper.setProps({ modelValue: true });
     await nextTick();
 
     expect(wrapper.findComponent(NoteSuggestions).props("notes")).toEqual([
-      "Lunch",
+      "Taxi",
     ]);
   });
 

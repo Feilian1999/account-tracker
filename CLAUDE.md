@@ -204,6 +204,16 @@ current member; every consumer expands it. `paidById` is `""` for income.
   type of a category never changes; two categories of one type may not share
   a name (the modal blocks it).
 
+**Note suggestions** (the chips under a record sheet's note field) come from
+a saved list, `savedNotes` (`stores/notes.ts`, `STORAGE_KEYS.SAVED_NOTES`,
+written by that module, not in `save()`, not backed up), never from records.
+A sheet calls `rememberNote(type, note, storedCategoryName)` after saving a
+record with a new or changed note; Profile → `NoteSettingsModal` adds,
+renames (merging onto an existing one), pins and deletes. Ranking
+(`rankSavedNotes`): pinned, uses with the picked category, uses, last use;
+one list everywhere, shared books included. Notes of a type are unique
+ignoring case.
+
 **`UserProfile.id` vs `memberId` — do not conflate them.** `id` is the secret
 cloud-backup key (a capability token; it must never leave the device except to
 the backup endpoint). `memberId` is the public identity embedded in shared-book

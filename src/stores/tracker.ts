@@ -8,6 +8,7 @@ import type {
   Category,
   CategoryOverride,
   RecordTemplate,
+  SavedNote,
 } from "./types";
 import {
   loadFromStorage,
@@ -17,6 +18,7 @@ import {
 } from "./storage";
 import { setupUserActions } from "./user";
 import { setupCategoryActions } from "./categories";
+import { setupNoteActions } from "./notes";
 import { setupBookActions } from "./books";
 import { setupPersonalActions } from "./personal";
 import { setupTemplateActions } from "./templates";
@@ -67,6 +69,7 @@ export const useTrackerStore = defineStore("tracker", () => {
   const customCategories = ref<Category[]>([]);
   const deletedCategoryIds = ref<string[]>([]);
   const categoryOverrides = ref<Record<string, CategoryOverride>>({});
+  const savedNotes = ref<SavedNote[]>([]);
   const recordTemplates = ref<RecordTemplate[]>([]);
   /** Shared-book CRDT replicas by bookId (see books.ts). */
   const sharedDocs = ref<Record<string, SharedDocState>>({});
@@ -108,6 +111,7 @@ export const useTrackerStore = defineStore("tracker", () => {
         loadedCustomCategories,
         loadedDeletedCategories,
         loadedCategoryOverrides,
+        loadedSavedNotes,
         loadedTemplates,
         loadedPendingDeleteRecords,
         loadedPendingDeletePersonalRecords,
@@ -129,6 +133,7 @@ export const useTrackerStore = defineStore("tracker", () => {
           STORAGE_KEYS.CATEGORY_OVERRIDES,
           {},
         ),
+        loadFromStorage<SavedNote[]>(STORAGE_KEYS.SAVED_NOTES, []),
         loadFromStorage(STORAGE_KEYS.TEMPLATES, []),
         loadFromStorage(STORAGE_KEYS.PENDING_DELETE_RECORDS, []),
         loadFromStorage(STORAGE_KEYS.PENDING_DELETE_PERSONAL_RECORDS, []),
@@ -173,6 +178,7 @@ export const useTrackerStore = defineStore("tracker", () => {
       customCategories.value = loadedCustomCategories || [];
       deletedCategoryIds.value = loadedDeletedCategories || [];
       categoryOverrides.value = loadedCategoryOverrides || {};
+      savedNotes.value = loadedSavedNotes || [];
       recordTemplates.value = loadedTemplates || [];
 
       pendingDeleteRecordIds.value = loadedPendingDeleteRecords || [];
@@ -245,6 +251,7 @@ export const useTrackerStore = defineStore("tracker", () => {
   //  Compose Sub-modules
   // =====================
   const userActions = setupUserActions(userProfile, save);
+  const noteActions = setupNoteActions(savedNotes);
   const categoryActions = setupCategoryActions(
     customCategories,
     deletedCategoryIds,
@@ -327,6 +334,7 @@ export const useTrackerStore = defineStore("tracker", () => {
     personalRecords,
     customCategories,
     recordTemplates,
+    savedNotes,
 
     // Lifecycle
     init,
@@ -337,6 +345,9 @@ export const useTrackerStore = defineStore("tracker", () => {
 
     // Categories
     ...categoryActions,
+
+    // Saved notes (one-tap note suggestions)
+    ...noteActions,
 
     // Books (CRUD + Settlement + Shared Sync)
     ...bookActions,

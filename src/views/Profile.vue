@@ -1,7 +1,7 @@
 <template>
   <main class="page-container">
     <header
-      class="rounded-b-3xl bg-gradient-to-br from-indigo-500 to-purple-600 px-6 pb-8 pt-10 text-white shadow-lg"
+      class="rounded-b-3xl bg-gradient-to-br from-indigo-500 to-purple-600 px-6 pt-10 pb-8 text-white shadow-lg"
     >
       <div class="flex items-center gap-4">
         <div
@@ -15,13 +15,16 @@
             <p class="text-xs font-medium text-indigo-100 opacity-80">
               ID: {{ store.userProfile.id }}
             </p>
-            <button 
+            <button
               type="button"
-              class="flex h-5 w-5 items-center justify-center rounded bg-white/10 hover:bg-white/20 active:scale-90 transition-all font-bold"
+              class="flex h-5 w-5 items-center justify-center rounded bg-white/10 font-bold transition-all hover:bg-white/20 active:scale-90"
               @click="copyUUID"
               title="Copy UUID"
             >
-              <CategoryIcon :name="copied ? 'check' : 'content_copy'" class="!text-[10px]" />
+              <CategoryIcon
+                :name="copied ? 'check' : 'content_copy'"
+                class="!text-[10px]"
+              />
             </button>
           </div>
           <p class="mt-1 text-sm text-indigo-200">
@@ -36,7 +39,9 @@
         aria-labelledby="profile-preferences-heading"
         class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all dark:border-gray-800 dark:bg-gray-800"
       >
-        <h2 id="profile-preferences-heading" class="sr-only">{{ $t("profile.settingsTitle") }}</h2>
+        <h2 id="profile-preferences-heading" class="sr-only">
+          {{ $t("profile.settingsTitle") }}
+        </h2>
 
         <div
           class="flex cursor-pointer items-center justify-between border-b border-gray-50 p-4 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800/50"
@@ -46,9 +51,14 @@
             <div
               class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500 dark:bg-orange-900/30"
             >
-              <CategoryIcon :name="themeIconMap[store.userProfile.theme || 'sheep']" class="h-5 w-5" />
+              <CategoryIcon
+                :name="themeIconMap[store.userProfile.theme || 'sheep']"
+                class="h-5 w-5"
+              />
             </div>
-            <span class="font-bold text-gray-700 dark:text-gray-200">{{ $t("profile.themeSet") }}</span>
+            <span class="font-bold text-gray-700 dark:text-gray-200">{{
+              $t("profile.themeSet")
+            }}</span>
           </div>
 
           <div class="flex items-center gap-2">
@@ -68,7 +78,9 @@
             >
               <CategoryIcon name="animation" class="h-5 w-5" />
             </div>
-            <span class="font-bold text-gray-700 dark:text-gray-200">{{ $t("profile.animationSet") }}</span>
+            <span class="font-bold text-gray-700 dark:text-gray-200">{{
+              $t("profile.animationSet")
+            }}</span>
           </div>
 
           <button
@@ -76,7 +88,9 @@
             role="switch"
             :aria-checked="store.userProfile.animations"
             :class="[
-              store.userProfile.animations ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600',
+              store.userProfile.animations
+                ? 'bg-indigo-500'
+                : 'bg-gray-300 dark:bg-gray-600',
               'relative inline-flex h-8 w-[52px] shrink-0 cursor-pointer items-center rounded-full transition-colors duration-300 ease-in-out focus:outline-none',
             ]"
             @click="toggleAnimations"
@@ -84,14 +98,22 @@
             <span class="sr-only">{{ $t("profile.animationSet") }}</span>
             <span
               :class="[
-                store.userProfile.animations ? 'translate-x-[26px]' : 'translate-x-[2px]',
+                store.userProfile.animations
+                  ? 'translate-x-[26px]'
+                  : 'translate-x-[2px]',
                 'pointer-events-none flex h-[24px] w-[24px] transform items-center justify-center rounded-full bg-white shadow-sm ring-0 transition duration-300 ease-in-out',
               ]"
             >
               <CategoryIcon
-                :name="store.userProfile.animations ? 'motion_photos_on' : 'motion_photos_off'"
+                :name="
+                  store.userProfile.animations
+                    ? 'motion_photos_on'
+                    : 'motion_photos_off'
+                "
                 :class="[
-                  store.userProfile.animations ? 'text-indigo-500' : 'text-gray-400',
+                  store.userProfile.animations
+                    ? 'text-indigo-500'
+                    : 'text-gray-400',
                   'flex items-center justify-center text-[15px] leading-none',
                 ]"
               />
@@ -115,6 +137,13 @@
         />
 
         <ProfileSettingItem
+          :title="$t('profile.noteSet')"
+          iconName="edit_note"
+          colorClasses="bg-amber-50 text-amber-600 dark:bg-amber-900/30"
+          @click="showNoteSettings = true"
+        />
+
+        <ProfileSettingItem
           :title="$t('profile.baseCurrency')"
           iconName="currency_exchange"
           colorClasses="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30"
@@ -135,7 +164,10 @@
         >
           <template #right>
             <span class="text-sm font-bold text-gray-500 dark:text-gray-400">
-              {{ langNameMap[$i18n.locale as keyof typeof langNameMap] || "English" }}
+              {{
+                langNameMap[$i18n.locale as keyof typeof langNameMap] ||
+                "English"
+              }}
             </span>
           </template>
         </ProfileSettingItem>
@@ -153,14 +185,18 @@
           colorClasses="bg-gray-50 text-gray-500 dark:bg-gray-900/30"
           @click="router.push('/terms')"
         />
-
       </section>
 
       <section aria-labelledby="profile-data-ops-heading" class="space-y-3">
-        <h2 id="profile-data-ops-heading" class="px-2 text-xs font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">
+        <h2
+          id="profile-data-ops-heading"
+          class="px-2 text-xs font-black tracking-wider text-gray-400 uppercase dark:text-gray-500"
+        >
           {{ $t("profile.dataOperations") }}
         </h2>
-        <div class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all dark:border-gray-800 dark:bg-gray-800">
+        <div
+          class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all dark:border-gray-800 dark:bg-gray-800"
+        >
           <ProfileSettingItem
             :disabled="store.isSyncing"
             :title="$t('profile.backupByUUID')"
@@ -214,11 +250,9 @@
     />
 
     <TemplateSettingsModal v-model="showTemplateSettings" />
+    <NoteSettingsModal v-model="showNoteSettings" />
 
-    <BaseBottomSheet
-      v-model="showThemeSheet"
-      :title="$t('profile.themeSet')"
-    >
+    <BaseBottomSheet v-model="showThemeSheet" :title="$t('profile.themeSet')">
       <div class="space-y-2">
         <button
           v-for="(name, code) in themeNameMap"
@@ -237,8 +271,20 @@
             <CategoryIcon :name="themeIconMap[code]" class="h-5 w-5" />
             <span>{{ name }}</span>
           </div>
-          <svg v-if="store.userProfile.theme === code" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+          <svg
+            v-if="store.userProfile.theme === code"
+            class="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.5"
+              d="M5 13l4 4L19 7"
+            />
           </svg>
         </button>
       </div>
@@ -264,8 +310,20 @@
           @click="chooseBaseCurrency(code)"
         >
           <span>{{ code }} · {{ $t(`currency.names.${code}`) }}</span>
-          <svg v-if="store.baseCurrency === code" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+          <svg
+            v-if="store.baseCurrency === code"
+            class="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.5"
+              d="M5 13l4 4L19 7"
+            />
           </svg>
         </button>
       </div>
@@ -273,9 +331,16 @@
       <div v-else class="space-y-4" aria-live="polite">
         <div>
           <h3 class="text-base font-bold text-gray-800 dark:text-gray-100">
-            {{ $t("baseCurrency.confirmTitle", { from: store.baseCurrency, to: currencyTarget }) }}
+            {{
+              $t("baseCurrency.confirmTitle", {
+                from: store.baseCurrency,
+                to: currencyTarget,
+              })
+            }}
           </h3>
-          <p class="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+          <p
+            class="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400"
+          >
             {{
               $t("baseCurrency.confirmBody", {
                 count: store.personalRecords.length,
@@ -291,8 +356,12 @@
           :disabled="converting"
           @click="applyBaseCurrency('historical')"
         >
-          <span class="block font-bold">{{ $t("baseCurrency.historical") }}</span>
-          <span class="mt-0.5 block text-xs opacity-80">{{ $t("baseCurrency.historicalHint") }}</span>
+          <span class="block font-bold">{{
+            $t("baseCurrency.historical")
+          }}</span>
+          <span class="mt-0.5 block text-xs opacity-80">{{
+            $t("baseCurrency.historicalHint")
+          }}</span>
         </button>
         <button
           type="button"
@@ -301,9 +370,14 @@
           @click="applyBaseCurrency('today')"
         >
           <span class="block font-bold">{{ $t("baseCurrency.today") }}</span>
-          <span class="mt-0.5 block text-xs opacity-70">{{ $t("baseCurrency.todayHint") }}</span>
+          <span class="mt-0.5 block text-xs opacity-70">{{
+            $t("baseCurrency.todayHint")
+          }}</span>
         </button>
-        <p v-if="converting" class="text-center text-sm font-bold text-emerald-600 dark:text-emerald-400">
+        <p
+          v-if="converting"
+          class="text-center text-sm font-bold text-emerald-600 dark:text-emerald-400"
+        >
           {{ $t("baseCurrency.converting") }}
         </p>
         <button
@@ -317,10 +391,7 @@
       </div>
     </BaseBottomSheet>
 
-    <BaseBottomSheet
-      v-model="showLangSheet"
-      :title="$t('profile.languageSet')"
-    >
+    <BaseBottomSheet v-model="showLangSheet" :title="$t('profile.languageSet')">
       <div class="space-y-2">
         <button
           v-for="(name, code) in langNameMap"
@@ -336,8 +407,20 @@
           @click="setLanguage(code)"
         >
           <span>{{ name }}</span>
-          <svg v-if="$i18n.locale === code" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+          <svg
+            v-if="$i18n.locale === code"
+            class="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.5"
+              d="M5 13l4 4L19 7"
+            />
           </svg>
         </button>
       </div>
@@ -354,6 +437,7 @@ import CategoryIcon from "../components/CategoryIcon.vue";
 import CategorySettingsModal from "../components/CategorySettingsModal.vue";
 import ProfileSettingItem from "../components/ProfileSettingItem.vue";
 import TemplateSettingsModal from "../components/TemplateSettingsModal.vue";
+import NoteSettingsModal from "../components/NoteSettingsModal.vue";
 import { useToast } from "../composables/useToast";
 import { promptDialog } from "../composables/useDialog";
 import { useTrackerStore } from "../stores/tracker";
@@ -368,6 +452,7 @@ const router = useRouter();
 const store = useTrackerStore();
 const showCategorySettings = ref(false);
 const showTemplateSettings = ref(false);
+const showNoteSettings = ref(false);
 const showLangSheet = ref(false);
 const showThemeSheet = ref(false);
 const piggyFileInput = ref<HTMLInputElement | null>(null);
@@ -391,8 +476,14 @@ const applyBaseCurrency = async (mode: RebaseMode) => {
   converting.value = true;
   try {
     const { converted, pending } = await store.changeBaseCurrency(target, mode);
-    if (pending > 0) toast.warning(t("baseCurrency.donePending", { currency: target, count: pending }));
-    else toast.success(t("baseCurrency.done", { currency: target, count: converted }));
+    if (pending > 0)
+      toast.warning(
+        t("baseCurrency.donePending", { currency: target, count: pending }),
+      );
+    else
+      toast.success(
+        t("baseCurrency.done", { currency: target, count: converted }),
+      );
     showBaseCurrencySheet.value = false;
     currencyTarget.value = null;
   } finally {

@@ -3,51 +3,60 @@ import { describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import AddPersonalRecordSheet from "../src/components/home/AddPersonalRecordSheet.vue";
 
-const record = {
-  id: "record-1",
-  type: "expense" as const,
-  amount: 120,
-  amountCurrency: "TWD",
-  category: "Food",
-  date: "2026-08-12",
-  note: "Lunch",
-};
+const { record, store } = vi.hoisted(() => {
+  const record = {
+    id: "record-1",
+    type: "expense" as const,
+    amount: 120,
+    amountCurrency: "TWD",
+    category: "Food",
+    date: "2026-08-12",
+    note: "Lunch",
+  };
+  return {
+    record,
+    store: {
+      personalRecords: [record],
+      savedNotes: [],
+      rememberNote: vi.fn(),
+      addPersonalRecord: vi.fn(),
+      updatePersonalRecord: vi.fn(),
+      addTemplate: vi.fn(),
+      recordTemplates: [
+        {
+          id: "tpl-amount",
+          name: "Coffee",
+          type: "expense",
+          amount: 60,
+          category: "food",
+          note: "",
+        },
+        {
+          id: "tpl-open",
+          name: "Taxi",
+          type: "expense",
+          amount: null,
+          category: "food",
+          note: "",
+        },
+      ],
+      allCategories: [
+        {
+          id: "food",
+          name: "Food",
+          type: "expense",
+          icon: "restaurant",
+          color: "red",
+        },
+      ],
+      baseCurrency: "TWD",
+      userProfile: { animations: false },
+    },
+  };
+});
 
 vi.mock("../src/stores/tracker", () => ({
-  useTrackerStore: () => ({
-    personalRecords: [record],
-    records: [],
-    books: [],
-    recordTemplates: [
-      {
-        id: "tpl-amount",
-        name: "Coffee",
-        type: "expense",
-        amount: 60,
-        category: "food",
-        note: "",
-      },
-      {
-        id: "tpl-open",
-        name: "Taxi",
-        type: "expense",
-        amount: null,
-        category: "food",
-        note: "",
-      },
-    ],
-    allCategories: [
-      {
-        id: "food",
-        name: "Food",
-        type: "expense",
-        icon: "restaurant",
-        color: "red",
-      },
-    ],
-    baseCurrency: "TWD",
-    userProfile: { animations: false },
-  }),
+  useTrackerStore: () => store,
 }));
 
 vi.mock("vue-i18n", () => ({
@@ -71,7 +80,10 @@ const open = async (props: {
         CategoryPickerSheet: true,
         CategoryIcon: true,
         CloseButton: true,
-        BaseButton: true,
+        BaseButton: {
+          template:
+            "<button type='button' data-testid='save' @click=\"$emit('click')\"><slot /></button>",
+        },
       },
     },
   });
@@ -101,6 +113,46 @@ describe("AddPersonalRecordSheet", () => {
     expect(calculatorShown(await open({}))).toBe(true);
     expect(calculatorShown(await open({ initialTemplateId: "tpl-open" }))).toBe(
       true,
+    );
+  });
+});
+
+describe("saving a note to the saved list", () => {
+  const save = async (wrapper: Awaited<ReturnType<typeof open>>) => {
+    await wrapper.get("[data-testid='save']").trigger("click");
+    await new Promise((r) => setTimeout(r));
+  };
+  const noteInput = (wrapper: Awaited<ReturnType<typeof open>>) =>
+    wrapper.get("input[placeholder='common.note']");
+
+  it("saves the note of a new record", async () => {
+    store.rememberNote.mockClear();
+    const wrapper = await open({});
+    await wrapper.get("input[placeholder='0']").setValue("50");
+    await noteInput(wrapper).setValue("Dinner");
+    await save(wrapper);
+
+    expect(store.addPersonalRecord).toHaveBeenCalled();
+    expect(store.rememberNote).toHaveBeenCalledWith(
+      "expense",
+      "Dinner",
+      "Food",
+    );
+  });
+
+  it("doesn't count re-saving an edit whose note is unchanged", async () => {
+    store.rememberNote.mockClear();
+    const wrapper = await open({ editRecordId: record.id });
+    await save(wrapper);
+    expect(store.updatePersonalRecord).toHaveBeenCalled();
+    expect(store.rememberNote).not.toHaveBeenCalled();
+
+    await noteInput(wrapper).setValue("Brunch");
+    await save(wrapper);
+    expect(store.rememberNote).toHaveBeenCalledWith(
+      "expense",
+      "Brunch",
+      "Food",
     );
   });
 });

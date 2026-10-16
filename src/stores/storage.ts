@@ -84,6 +84,8 @@ export const STORAGE_KEYS = {
   DELETED_CATEGORIES: "tracker_deleted_categories",
   // Local edits to default categories by id (stores/categories.ts): never synced
   CATEGORY_OVERRIDES: "tracker_category_overrides",
+  // Note suggestions (stores/notes.ts): local only, never synced
+  SAVED_NOTES: "tracker_saved_notes",
   TEMPLATES: "tracker_templates",
   // Tombstone keys: IDs of locally-deleted items not yet pushed to cloud
   PENDING_DELETE_RECORDS: "tracker_pending_delete_records",
