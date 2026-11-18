@@ -47,6 +47,10 @@ export default {
     },
   },
   home: {
+    search: "搜尋",
+    searchPlaceholder: "搜尋備註、分類、金額",
+    clearSearch: "清除搜尋",
+    noSearchResults: "找不到符合「{query}」的紀錄",
     shareLabel: "收入佔 {income}%，支出佔 {expense}%",
     shareEmpty: "這段期間沒有收支",
     personalAccount: "個人帳戶",

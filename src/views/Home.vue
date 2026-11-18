@@ -51,6 +51,25 @@
           {{ $t("filter.all") }}
         </div>
 
+        <button
+          type="button"
+          class="relative z-20 flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full shadow-sm transition-colors"
+          :class="
+            searchOpen
+              ? 'bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-500'
+              : 'bg-white text-gray-600 hover:bg-gray-50 active:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+          "
+          :aria-label="$t('home.search')"
+          :aria-expanded="searchOpen"
+          aria-controls="home-search"
+          data-testid="search-toggle"
+          @click="toggleSearch"
+        >
+          <span class="material-symbols-outlined text-[22px]" aria-hidden="true"
+            >search</span
+          >
+        </button>
+
         <div class="relative">
           <button
             type="button"
@@ -233,6 +252,40 @@
       </div>
 
       <div
+        v-if="searchOpen"
+        id="home-search"
+        role="search"
+        class="mb-3 flex h-10 items-center gap-2 rounded-2xl bg-white px-3 shadow-sm dark:bg-gray-800"
+      >
+        <span
+          class="material-symbols-outlined text-xl text-gray-400"
+          aria-hidden="true"
+          >search</span
+        >
+        <input
+          ref="searchInput"
+          v-model="searchQuery"
+          type="search"
+          enterkeyhint="search"
+          :placeholder="$t('home.searchPlaceholder')"
+          :aria-label="$t('home.search')"
+          class="min-w-0 flex-1 bg-transparent text-base font-medium text-gray-800 outline-none placeholder:text-gray-400 dark:text-gray-100 [&::-webkit-search-cancel-button]:hidden"
+          @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
+        />
+        <button
+          v-if="searchQuery"
+          type="button"
+          class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300"
+          :aria-label="$t('home.clearSearch')"
+          @click="clearSearch"
+        >
+          <span class="material-symbols-outlined text-base" aria-hidden="true"
+            >close</span
+          >
+        </button>
+      </div>
+
+      <div
         v-if="store.pendingConversionCount > 0"
         class="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-amber-50 px-4 py-3 dark:bg-amber-900/20"
         role="status"
@@ -260,8 +313,14 @@
         class="empty-state py-10 text-sm"
         aria-live="polite"
       >
-        <div class="mb-2 text-3xl" aria-hidden="true">📝</div>
-        {{ $t("home.noRecords") }}
+        <template v-if="searching">
+          <div class="mb-2 text-3xl" aria-hidden="true">🔍</div>
+          {{ $t("home.noSearchResults", { query: searchQuery.trim() }) }}
+        </template>
+        <template v-else>
+          <div class="mb-2 text-3xl" aria-hidden="true">📝</div>
+          {{ $t("home.noRecords") }}
+        </template>
       </section>
 
       <div v-else class="space-y-6">
@@ -289,7 +348,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, nextTick, ref } from "vue";
 import CategoryIcon from "../components/CategoryIcon.vue";
 import DraggableFab from "../components/DraggableFab.vue";
 import MonthSelector from "../components/MonthSelector.vue";
@@ -300,7 +359,12 @@ import DailyRecordGroup from "../components/home/DailyRecordGroup.vue";
 import ImportFromBookSheet from "../components/home/ImportFromBookSheet.vue";
 import { useTrackerStore } from "../stores/tracker";
 import { colorMap } from "../utils/category";
-import { storedCategoryName } from "../utils/categoryLookup";
+import {
+  categoryLabel,
+  findCategoryByName,
+  storedCategoryName,
+} from "../utils/categoryLookup";
+import { recordMatchesQuery } from "../utils/recordSearch";
 import { getLocalDateString, getLocalYearMonthString } from "../utils/date";
 import { useEscapeKey } from "../composables/useEscapeKey";
 import { confirmDialog } from "../composables/useDialog";
@@ -331,9 +395,49 @@ useEscapeKey(menuOpen, () => {
   showImportMenu.value = false;
 });
 
+// ---- Search: narrows the records of the chosen period ----
+const searchOpen = ref(false);
+const searchQuery = ref("");
+const searchInput = ref<HTMLInputElement>();
+const searching = computed(() => searchQuery.value.trim() !== "");
+const openSearch = async () => {
+  showFilterMenu.value = false;
+  showImportMenu.value = false;
+  searchOpen.value = true;
+  await nextTick();
+  searchInput.value?.focus();
+};
+const closeSearch = () => {
+  searchOpen.value = false;
+  searchQuery.value = "";
+};
+const toggleSearch = () => (searchOpen.value ? closeSearch() : openSearch());
+const clearSearch = () => {
+  searchQuery.value = "";
+  searchInput.value?.focus();
+};
+// Escape (or Back) closes the search and shows every record again.
+useEscapeKey(searchOpen, closeSearch);
+
 const setFilterMode = (mode: "all" | "year" | "month") => {
   filterMode.value = mode;
   showFilterMenu.value = false;
+};
+
+const toast = useToast();
+const { t, te } = useI18n();
+
+/** The category as the list shows it (translated defaults), for search. */
+const shownCategory = (record: {
+  category: string;
+  type: "expense" | "income";
+}) => {
+  const category = findCategoryByName(
+    store.allCategories,
+    record.category,
+    record.type,
+  );
+  return category ? categoryLabel(category, t, te) : record.category;
 };
 
 const filteredPersonalRecords = computed(() =>
@@ -346,6 +450,11 @@ const filteredPersonalRecords = computed(() =>
         return r.date.startsWith(selectedMonth.value);
       return true;
     })
+    .filter(
+      (r) =>
+        !searching.value ||
+        recordMatchesQuery(r, searchQuery.value, shownCategory(r)),
+    )
     .sort((a, b) => b.date.localeCompare(a.date)),
 );
 
@@ -366,8 +475,6 @@ const filteredIncome = computed(() =>
   sumInCurrency(filteredPersonalRecords.value, "income", store.baseCurrency),
 );
 
-const toast = useToast();
-const { t } = useI18n();
 const retrying = ref(false);
 const retryConversion = async () => {
   if (retrying.value) return;

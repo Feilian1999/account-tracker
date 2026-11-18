@@ -47,6 +47,10 @@ export default {
     },
   },
   home: {
+    search: "Search",
+    searchPlaceholder: "Search notes, categories, amounts",
+    clearSearch: "Clear search",
+    noSearchResults: "No records match “{query}”",
     shareLabel: "Income {income}%, expenses {expense}%",
     shareEmpty: "No income or expenses in this period",
     personalAccount: "Personal Account",

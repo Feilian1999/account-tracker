@@ -47,6 +47,10 @@ export default {
     },
   },
   home: {
+    search: "検索",
+    searchPlaceholder: "メモ・カテゴリ・金額で検索",
+    clearSearch: "検索をクリア",
+    noSearchResults: "「{query}」に一致する記録はありません",
     shareLabel: "収入 {income}%、支出 {expense}%",
     shareEmpty: "この期間の収支はありません",
     personalAccount: "個人口座",
