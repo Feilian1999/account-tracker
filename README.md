@@ -33,12 +33,12 @@ deployed on Vercel
 
 ## Getting started
 
-Requires Node.js 20+.
+Requires Node.js 22.12+ (Capacitor 8 and Vite 7 need it).
 
 ```bash
 npm install
-echo "VITE_API_URL=http://localhost:8080/api" > .env   # the backend's /api URL
-npm run dev                                            # http://localhost:5173
+cp .env.example .env    # VITE_API_URL: the backend's /api URL
+npm run dev             # http://localhost:5173
 ```
 
 | Command | |

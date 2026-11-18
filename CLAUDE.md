@@ -589,8 +589,8 @@ The backend has its own `CLAUDE.md`; read it before changing a payload shape.
   something remotely also dedupe in the store — `publishBook` shares one
   in-flight request per book, because a second share would create a second
   shared space and swap the code under the user.
-- `README.md` is stale (mentions Google login, 6-digit codes, two locales).
-  Trust this file and the code over it.
+- `README.md` is a short user-facing overview; this file is the detailed
+  reference. If they disagree, trust this file and the code.
 - `.npmrc` sets `legacy-peer-deps=true` for `@vercel/analytics`'s vue-router@4
   peer; removing it breaks `npm ci` on Vercel.
 - Capacitor: `appId` `id.account.tracker`, `webDir: dist`. Only `ios/` is
