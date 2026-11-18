@@ -93,7 +93,8 @@
         </div>
       </div>
 
-      <ul class="flex flex-wrap gap-2" :aria-label="$t('members.title')">
+      <!-- A one-person book reads as a personal ledger: no member chips. -->
+      <ul v-if="!solo" class="flex flex-wrap gap-2" :aria-label="$t('members.title')">
         <li
           v-for="member in activeMembers(book.members)"
           :key="member.id"
@@ -214,7 +215,7 @@
                 </div>
 
                 <div
-                  v-if="record.type === 'expense'"
+                  v-if="record.type === 'expense' && !solo"
                   class="mt-3 flex items-center justify-between border-t border-gray-50 pt-3 dark:border-gray-700/50"
                 >
                   <div class="flex items-center gap-2">
@@ -251,7 +252,7 @@ import { confirmDialog } from "../../composables/useDialog";
 import { useFitText } from "../../composables/useFitText";
 import RecordAmount from "../RecordAmount.vue";
 import MemberAvatar from "../MemberAvatar.vue";
-import { activeMembers, isSelf } from "../../utils/member";
+import { activeMembers, isSelf, isSoloBook } from "../../utils/member";
 import { currencyOf, formatMoney } from "../../utils/currency";
 import { useTrackerStore } from "../../stores/tracker";
 import type { Category } from "../../stores/types";
@@ -278,6 +279,8 @@ const { t, te, locale } = useI18n();
 
 const book = computed(() => store.books.find((candidate) => candidate.id === props.bookId));
 const bookCurrency = computed(() => currencyOf(book.value?.currency));
+/** Nobody to split with: hide payer, split and settlement. */
+const solo = computed(() => !!book.value && isSoloBook(book.value, store.records));
 
 const isPulling = ref(false);
 const initPull = async () => {
@@ -334,7 +337,9 @@ const menuItems = computed(() => [
     busy: !!props.sharing,
     run: () => emit("share"),
   },
-  { key: "settle", icon: "receipt_long", label: t("books.settle"), run: () => emit("settle") },
+  ...(solo.value
+    ? []
+    : [{ key: "settle", icon: "receipt_long", label: t("books.settle"), run: () => emit("settle") }]),
   { key: "edit", icon: "edit", label: t("books.editBook"), run: () => emit("edit") },
   { key: "delete", icon: "delete", label: t("books.deleteBook"), danger: true, run: () => confirmDelete() },
 ]);

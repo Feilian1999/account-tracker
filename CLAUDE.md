@@ -500,6 +500,11 @@ locally.
 - Prefer semantic interactive elements: a tappable row is a `<button
   type="button">`, not a `<div>` with `@click`. Note that a `<button>` may not
   contain `<label>`/block-level form elements — use `<span>` inside.
+- **One-person books** (`isSoloBook` in `utils/member.ts`) read as a personal
+  ledger: BookDetail hides member chips, the payer/split line and the Settle
+  menu item, and `BookAddRecordSheet` (`solo` prop) hides payer and split and
+  books every expense to the only member. A book stops being solo while any
+  record still involves a removed member — settlement must stay reachable.
 
 ---
 

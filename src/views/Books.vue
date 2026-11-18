@@ -28,6 +28,7 @@
       v-model="showAddRecordSheet"
       :bookName="currentBook.name"
       :members="sheetMembers"
+      :solo="isSoloBook(currentBook, store.records)"
       :currency="currencyOf(currentBook.currency)"
       :editRecordId="editRecordId"
     />
@@ -64,6 +65,7 @@ import { useTrackerStore } from "../stores/tracker";
 import { useEscapeKey } from "../composables/useEscapeKey";
 import { usePrimaryAction } from "../composables/usePrimaryAction";
 import { currencyOf } from "../utils/currency";
+import { isSoloBook } from "../utils/member";
 
 const store = useTrackerStore();
 const toast = useToast();

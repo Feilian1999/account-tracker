@@ -3,6 +3,7 @@ import { ref } from "vue";
 import type { Book, RecordItem, UserProfile } from "../src/stores/types";
 import {
   isSelf,
+  isSoloBook,
   memberInitial,
   memberRecordCount,
   validateMembers,
@@ -237,5 +238,51 @@ describe("joining a shared book", () => {
     const store = setup(emptyBook());
     const preview = await store.previewSharedBook(code);
     expect(store.findSelfMember(preview.book)?.id).toBe("y");
+  });
+});
+
+describe("isSoloBook", () => {
+  const book = (members: Book["members"]) =>
+    ({ id: "b1", members }) as Pick<Book, "id" | "members">;
+
+  it("is solo with one member and only their records", () => {
+    const b = book([{ id: "a", name: "A" }]);
+    expect(isSoloBook(b, [])).toBe(true);
+    expect(
+      isSoloBook(b, [record({}), record({ splitAmongIds: ["all"] })]),
+    ).toBe(true);
+    // Income has no payer or split.
+    expect(
+      isSoloBook(b, [
+        record({ type: "income", paidById: "", splitAmongIds: [] }),
+      ]),
+    ).toBe(true);
+  });
+
+  it("is not solo with two active members", () => {
+    expect(
+      isSoloBook(
+        book([
+          { id: "a", name: "A" },
+          { id: "b", name: "B" },
+        ]),
+        [],
+      ),
+    ).toBe(false);
+  });
+
+  it("is not solo while a removed member is still in a record", () => {
+    const b = book([
+      { id: "a", name: "A" },
+      { id: "b", name: "B", archived: true },
+    ]);
+    expect(isSoloBook(b, [])).toBe(true);
+    expect(isSoloBook(b, [record({ paidById: "b" })])).toBe(false);
+    expect(isSoloBook(b, [record({ splitAmongIds: ["a", "b"] })])).toBe(false);
+    expect(
+      isSoloBook(b, [record({ splitCustomAmounts: { a: 50, b: 50 } })]),
+    ).toBe(false);
+    // Another book's records don't count.
+    expect(isSoloBook(b, [record({ bookId: "b2", paidById: "b" })])).toBe(true);
   });
 });

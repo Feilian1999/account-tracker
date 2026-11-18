@@ -1,4 +1,4 @@
-import type { Member, RecordItem, UserProfile } from "../stores/types";
+import type { Book, Member, RecordItem, UserProfile } from "../stores/types";
 
 /**
  * A member row being edited (create/edit book). Every row carries a real id —
@@ -80,6 +80,31 @@ export function memberRecordCount(
 /** Members that are still in the book (archived ones only remain for settlement). */
 export const activeMembers = <T extends Pick<Member, "archived">>(members: T[]): T[] =>
   members.filter((m) => !m.archived);
+
+/**
+ * A book with one person in it is used like a personal ledger: there is
+ * nobody to split with, so the UI hides payer, split and settlement.
+ *
+ * It needs at most one active member AND no record of the book involving
+ * anyone else — a removed (archived) member may still be owed money, and
+ * hiding settlement would hide that debt.
+ */
+export function isSoloBook(
+  book: Pick<Book, "id" | "members">,
+  records: RecordItem[],
+): boolean {
+  const active = activeMembers(book.members);
+  if (active.length > 1) return false;
+  const solo = active[0]?.id;
+  const other = (id: string) => id !== solo && id !== "all";
+  return records.every(
+    (r) =>
+      r.bookId !== book.id ||
+      ((!r.paidById || !other(r.paidById)) &&
+        !r.splitAmongIds.some(other) &&
+        !Object.keys(r.splitCustomAmounts ?? {}).some(other)),
+  );
+}
 
 const normalize = (name: string) => name.trim().toLowerCase();
 

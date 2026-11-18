@@ -206,8 +206,11 @@
           @select="form.note = $event"
         />
 
-        <!-- Paid By & Split Among -->
-        <div v-if="form.type === 'expense'" class="mt-2 space-y-4 pt-2">
+        <!-- Paid By & Split Among — not in a one-person book. -->
+        <div
+          v-if="form.type === 'expense' && !solo"
+          class="mt-2 space-y-4 pt-2"
+        >
           <!-- Paid By -->
           <div class="flex flex-col gap-2 pt-2">
             <div class="flex items-center gap-2">
@@ -501,6 +504,8 @@ const props = defineProps<{
   /** The book currency: every stored amount (and custom split) is in it. */
   currency: CurrencyCode;
   editRecordId?: string;
+  /** One-person book: no payer or split to choose; the only member pays it all. */
+  solo?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -876,6 +881,13 @@ const handleSubmit = async () => {
   if (!amt || isNaN(amt) || amt <= 0) return;
   if (!fxReady.value) return;
   const isExpense = form.value.type === "expense";
+  // A one-person book shows no split controls: book it as that member's,
+  // whatever an older edit restored into the hidden form.
+  if (props.solo && props.members[0]) {
+    form.value.paidById = props.members[0].id;
+    form.value.splitAmongIds = [props.members[0].id];
+    form.value.splitMode = "equal";
+  }
   if (
     isExpense &&
     form.value.splitMode === "equal" &&

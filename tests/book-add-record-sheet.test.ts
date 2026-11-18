@@ -16,6 +16,8 @@ const record = {
   splitAmongIds: ["member-1", "member-2"],
 };
 
+const updateRecord = vi.hoisted(() => vi.fn());
+
 vi.mock("../src/stores/tracker", () => ({
   useTrackerStore: () => ({
     records: [record],
@@ -41,6 +43,7 @@ vi.mock("../src/stores/tracker", () => ({
       },
     ],
     rememberNote: vi.fn(),
+    updateRecord,
     recordTemplates: [],
     allCategories: [
       {
@@ -60,7 +63,13 @@ vi.mock("vue-i18n", () => ({
   useI18n: () => ({ t: (key: string) => key, locale: { value: "en" } }),
 }));
 
-const mountSheet = (props: { editRecordId?: string } = {}) =>
+const mountSheet = (
+  props: {
+    editRecordId?: string;
+    solo?: boolean;
+    members?: { id: string; name: string }[];
+  } = {},
+) =>
   mount(BookAddRecordSheet, {
     props: {
       modelValue: false,
@@ -111,5 +120,40 @@ describe("BookAddRecordSheet", () => {
 
     expect(wrapper.find('[data-testid="calculator"]').exists()).toBe(false);
     expect(wrapper.text()).toContain("recordSheet.splitAmong");
+  });
+
+  it("hides payer and split in a one-person book", async () => {
+    const wrapper = mountSheet({
+      solo: true,
+      members: [{ id: "member-1", name: "Alice" }],
+    });
+    await wrapper.setProps({ modelValue: true });
+    await nextTick();
+
+    expect(wrapper.text()).not.toContain("recordSheet.paidBy");
+    expect(wrapper.text()).not.toContain("recordSheet.splitAmong");
+  });
+
+  it("books a one-person record entirely to that member", async () => {
+    updateRecord.mockClear();
+    const wrapper = mountSheet({
+      editRecordId: record.id,
+      solo: true,
+      members: [{ id: "member-1", name: "Alice" }],
+    });
+    await wrapper.setProps({ modelValue: true });
+    await nextTick();
+
+    await wrapper.find("form").trigger("submit");
+    await nextTick();
+
+    expect(updateRecord).toHaveBeenCalledWith(
+      record.id,
+      expect.objectContaining({
+        paidById: "member-1",
+        splitAmongIds: ["member-1"],
+        splitCustomAmounts: undefined,
+      }),
+    );
   });
 });
